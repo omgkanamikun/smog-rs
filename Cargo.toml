@@ -2,9 +2,9 @@
 name = "smog-rs"
 version = "0.1.0"
 authors = ["Vladyslav Kondratenko <vladyslav.kondratenko.dev@gmail.com>"]
-edition = "2021"
-resolver = "2"
-rust-version = "1.77"
+edition = "2024"
+resolver = "3"
+rust-version = "1.92.0"
 
 [[bin]]
 name = "smog-rs"
@@ -23,8 +23,8 @@ default = []
 experimental = ["esp-idf-svc/experimental"]
 
 [dependencies]
-log = "0.4"
-esp-idf-svc = "0.51"
+log = "0.4.29"
+esp-idf-svc = "0.51.0"
 
 # --- Optional Embassy Integration ---
 # esp-idf-svc = { version = "0.51", features = ["critical-section", "embassy-time-driver", "embassy-sync"] }
@@ -44,4 +44,4 @@ esp-idf-svc = "0.51"
 # critical-section = { version = "1.1", features = ["std"], default-features = false }
 
 [build-dependencies]
-embuild = "0.33"
+embuild = "0.33.1"

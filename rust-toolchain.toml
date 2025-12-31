@@ -1,3 +1,7 @@
+# To use the standard library,
+# we use the `build-std` feature in `.cargo/config.toml`,
+# which automatically compiles `std` from the source for your specific chip.
+# This feature is currently unstable and requires the `nightly` toolchain.
 [toolchain]
 channel = "nightly"
 components = ["rust-src"]

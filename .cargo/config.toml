@@ -12,5 +12,8 @@ build-std = ["std", "panic_abort"]
 [env]
 MCU="esp32c3"
 # Note: this variable is not used by the pio builder (`cargo build --features pio`)
-ESP_IDF_VERSION = "v5.3.3"
+ESP_IDF_VERSION = "v5.3.4"
 
+# In case of SSL CERT issues:
+#REQUESTS_CA_BUNDLE = "~/ca-bundle.pem"
+#SSL_CERT_FILE = "~/ca-bundle.pem"

@@ -97,14 +97,14 @@ impl WeatherStation {
     fn log_reading(&self, data: WeatherData) {
         // Log the main environmental data
         let env_msg = format!(
-            "[ 🌡️  {:.2}C | 💧 {:.2}% | ☁️  {:.2} hPa ]",
+            "[ 🌡️ Temp {:.2}C | 💧Humidity {:.2}% | ☁️ Pressure {:.2} hPa ]",
             data.temperature, data.humidity, data.pressure
         );
         self.log_generic(LogLevel::Info, &env_msg, Some(&data.timestamp));
 
         // Log VOC if available
         if let Some(voc) = data.voc {
-            let voc_msg = format!("🍃 VOC Index: {}", voc);
+            let voc_msg = format!("🍃 Indoor air quality (VOC) index: {}", voc);
             self.log_generic(LogLevel::Info, &voc_msg, Some(&data.timestamp));
         }
     }
@@ -202,12 +202,12 @@ fn setup_wifi(
 
 fn setup_ntp() -> anyhow::Result<()> {
     let ntp_client = EspSntp::new_default().context("Failed to init NTP")?;
-    info!("\x1b[38;5;27m Синхронізація часу через NTP...");
+    info!("\x1b[38;5;27m Time sync in progress...");
 
     while ntp_client.get_sync_status() != SyncStatus::Completed {
         FreeRtos::delay_ms(100);
     }
-    info!("\x1b[38;5;27m Час синхронізовано! Тепер логи будуть з актуальною датою.");
+    info!("\x1b[38;5;27m Time is syncronised");
     Ok(())
 }
 

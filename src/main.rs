@@ -2,125 +2,164 @@ use anyhow::Context;
 use bme280_rs::{Bme280, Configuration, Oversampling, SensorMode};
 use chrono::Local;
 use embedded_hal_bus::i2c::RefCellDevice;
+use esp_idf_svc::eventloop::EspSystemEventLoop;
 use esp_idf_svc::hal::delay::FreeRtos;
-use esp_idf_svc::hal::gpio::PinDriver;
+use esp_idf_svc::hal::gpio::{Gpio8, PinDriver};
 use esp_idf_svc::hal::i2c::{I2cConfig, I2cDriver};
+use esp_idf_svc::hal::modem::Modem;
 use esp_idf_svc::hal::peripherals::Peripherals;
 use esp_idf_svc::hal::units::Hertz;
 use esp_idf_svc::log::EspLogger;
-// use esp_idf_svc::sntp::{EspSntp, SyncStatus};
+use esp_idf_svc::nvs::EspDefaultNvsPartition;
+use esp_idf_svc::sntp::{EspSntp, SyncStatus};
 use esp_idf_svc::sys;
+use esp_idf_svc::wifi::{AuthMethod, ClientConfiguration, Configuration as WifiConfig, EspWifi};
 use log::{error, info, warn};
 use sgp40::Sgp40;
 use std::cell::RefCell;
 use sys::esp_timer_get_time;
 use sys::link_patches;
 
-const DELAY: u32 = 4000;
+type SharedI2cBus = RefCell<I2cDriver<'static>>;
+type I2cBusDevice = RefCellDevice<'static, I2cDriver<'static>>;
+
+const WIFI_SSID: &str = "NAME";
+const WIFI_PASS: &str = "Passw0rd";
+const EXECUTION_DELAY: u32 = 4000;
 const TIMESTAMP_PATTERN: &str = "%Y-%m-%d %H:%M:%S";
-const UNEXPECTED_PROCESS_DELAY: &str = "Process took longer than the expected threshold";
+const BME280_EMPTY_SAMPLE: &str = "\x1b[38;5;11m BME280 returned empty or partial data";
 
-// todo: Move to async
-//  The ESP32-C3 is great at async/await.
-//  If you eventually want to read sensors
-//  and send data over WiFi at the same time without the sensor loop blocking the WiFi,
-//  look into the esp-hal-embassy or edge-executor crates
-fn main() -> anyhow::Result<()> {
-    link_patches();
-    EspLogger::initialize_default();
+struct WeatherStation {
+    bme280: Bme280<I2cBusDevice, FreeRtos>,
+    sgp40: Sgp40<I2cBusDevice, FreeRtos>,
+}
 
-    info!(
-        "\n  ____                              ____      \n / ___| _ __ ___   ___   __ _      |  _ \\ ___ \n \\___ \\| '_ ` _ \\ / _ \\ / _` |_____| |_) / __|\n  ___) | | | | | | (_) | (_| |_____|  _ <\\__ \\\n |____/|_| |_| |_|\\___/ \\__, |     |_| \\_\\___/\n                        |___/                         "
-    );
+impl WeatherStation {
+    fn new(i2c_bus: &'static SharedI2cBus) -> anyhow::Result<Self> {
+        let bme_i2c = RefCellDevice::new(i2c_bus);
+        let sgp_i2c = RefCellDevice::new(i2c_bus);
 
-    // let ntp_client = EspSntp::new_default()
-    //     .with_context(|| "Failed to init NTP")?;
-    // info!("\x1b[38;5;27m Синхронізація часу через NTP...");
-    //
-    // while ntp_client.get_sync_status() != SyncStatus::Completed {
-    //     FreeRtos::delay_ms(100);
-    // }
-    // info!("\x1b[38;5;27m Час синхронізовано! Тепер логи будуть з реальною датою.");
+        let mut bme = Bme280::new(bme_i2c, FreeRtos);
+        bme.init().with_context(|| "Failed to init BME280")?;
 
-    let peripherals = Peripherals::take().with_context(|| "Failed to take Peripherals")?;
+        let bme_sampling_config = Configuration::default()
+            .with_humidity_oversampling(Oversampling::Oversample1)
+            .with_temperature_oversampling(Oversampling::Oversample1)
+            .with_pressure_oversampling(Oversampling::Oversample1)
+            .with_sensor_mode(SensorMode::Normal);
+        bme.set_sampling_configuration(bme_sampling_config)
+            .with_context(|| "BME280 sensor configuration error")?;
 
-    // to disable the 'Lighthouse'
-    let mut led_data_pin = PinDriver::output(peripherals.pins.gpio8)
-        .with_context(|| "Failed to initialize PinDriver")?;
-    led_data_pin.set_low()?;
+        let sgp = Sgp40::new(sgp_i2c, 0x59, FreeRtos);
 
-    let i2c_controller = peripherals.i2c0;
-    let sda_data_pin = peripherals.pins.gpio6;
-    let scl_clock_pin = peripherals.pins.gpio7;
+        Ok(Self {
+            bme280: bme,
+            sgp40: sgp,
+        })
+    }
 
-    let i2c_config = I2cConfig::new().baudrate(Hertz::from(100_000));
-    let i2c_driver = I2cDriver::new(i2c_controller, sda_data_pin, scl_clock_pin, &i2c_config)
-        .with_context(|| "Failed to initialize I2C Driver")?;
-
-    let i2c_shared_bus = RefCell::new(i2c_driver);
-
-    let bme_i2c = RefCellDevice::new(&i2c_shared_bus);
-    let sgp_i2c = RefCellDevice::new(&i2c_shared_bus);
-
-    let mut bme = Bme280::new(bme_i2c, FreeRtos);
-    bme.init().with_context(|| "Failed to init BME280")?;
-
-    // The BME280 is a sophisticated sensor that starts up in Sleep Mode by default.
-    // Even though you called init(), the sensor needs to be told
-    // what to measure (Oversampling) and how to run (Mode).
-    let bme_sampling_config = Configuration::default()
-        .with_humidity_oversampling(Oversampling::Oversample1)
-        .with_temperature_oversampling(Oversampling::Oversample1)
-        .with_pressure_oversampling(Oversampling::Oversample1)
-        .with_sensor_mode(SensorMode::Normal);
-    bme.set_sampling_configuration(bme_sampling_config)
-        .with_context(|| "BME280 sensor configuration error")?;
-
-    let mut sgp = Sgp40::new(sgp_i2c, 0x59, FreeRtos);
-
-    // https://talyian.github.io/ansicolors/
-    info!("\x1b[38;5;27m✅ Sensors initialized successfully!\x1b[0m");
-
-    loop {
-        match bme.read_sample() {
+    fn update(&mut self) {
+        match self.bme280.read_sample() {
             Ok(sample) => {
-                // todo: Handling "None" better,
-                //  we have to skip the SGP40 measurement completely if the BME280 fails
-                let temp_option = sample.temperature;
-                let hum_option = sample.humidity;
-                let pr_option = sample.pressure;
-
-                if let Some(temperature) = temp_option
-                    && let Some(humidity) = hum_option
-                    && let Some(pressure) = pr_option
+                if let (Some(t), Some(h), Some(p)) =
+                    (sample.temperature, sample.humidity, sample.pressure)
                 {
-                    let uptime = get_uptime_string();
-                    let timestamp = get_timestamp();
-                    info!(
-                        "\x1b[38;5;40m {} [{}] [ 🌡️  Температура: {:.2}C | 💧 Вологість: {:.2}% | ☁️  Тиск: {:.2} hPa ]",
-                        uptime,
-                        timestamp,
-                        temperature,
-                        humidity,
-                        pressure / 100.0 // Pressure is usually in Pa, convert to hPa
-                    );
-
-                    // A tiny delay between sensors to let the I2C bus settle
                     FreeRtos::delay_ms(10);
 
-                    match sgp.measure_voc_index_with_rht(humidity as u16, temperature as i16) {
-                        Ok(voc) => log_sensor_data("info", &format!("🍃 VOC Index: {}", voc)),
-                        Err(e) => log_sensor_data("error", &format!("⚠️  SGP40 Error: {:?}", e)),
-                    }
+                    let voc = self
+                        .sgp40
+                        .measure_voc_index_with_rht(h as u16, t as i16)
+                        .ok();
+
+                    let data = WeatherData {
+                        temperature: t,
+                        humidity: h,
+                        pressure: p / 100.0, // Standard conversion to hPa
+                        voc,
+                        timestamp: get_timestamp(),
+                    };
+                    self.log_reading(data);
                 } else {
-                    log_sensor_data("warn", UNEXPECTED_PROCESS_DELAY);
+                    log_sensor_data("warn", BME280_EMPTY_SAMPLE);
                 }
             }
             Err(e) => log_sensor_data("error", &format!("🚫 BME280 Error: {:?}", e)),
         }
-
-        FreeRtos::delay_ms(DELAY);
     }
+
+    fn log_reading(&self, data: WeatherData) {
+        let uptime = get_uptime_string();
+
+        info!(
+            "\x1b[38;5;40m {} [{}] [ 🌡️  {:.2}C | 💧 {:.2}% | ☁️  {:.2} hPa ]",
+            uptime, data.timestamp, data.temperature, data.humidity, data.pressure
+        );
+
+        if let Some(voc) = data.voc {
+            let prefix = format!("{} [{}]", uptime, data.timestamp);
+            info!("\x1b[38;5;40m{} 🍃 VOC Index: {}\x1b[0m", prefix, voc);
+        }
+    }
+}
+
+struct WeatherData {
+    temperature: f32,
+    humidity: f32,
+    pressure: f32,
+    voc: Option<u16>,
+    timestamp: String,
+}
+
+fn print_splash_screen() {
+    info!(
+        "\n  ____                              ____      \n / ___| _ __ ___   ___   __ _      |  _ \\ ___ \n \\___ \\| '_ ` _ \\ / _ \\ / _` |_____| |_) / __|\n  ___) | | | | | | (_) | (_| |_____|  _ <\\__ \\\n |____/|_| |_| |_|\\___/ \\__, |     |_| \\_\\___/\n                        |___/                         "
+    );
+}
+
+fn disable_lighthouse(gpio_pin: Gpio8) -> anyhow::Result<()> {
+    let mut led_data_pin_driver =
+        PinDriver::output(gpio_pin).with_context(|| "Failed to initialize PinDriver")?;
+    led_data_pin_driver.set_low()?;
+    Ok(())
+}
+
+fn setup_wifi(
+    modem: Modem,
+    sys_loop: EspSystemEventLoop,
+    nvs: EspDefaultNvsPartition,
+) -> anyhow::Result<EspWifi<'static>> {
+    let mut wifi = EspWifi::new(modem, sys_loop, Some(nvs))?;
+    wifi.set_configuration(&WifiConfig::Client(ClientConfiguration {
+        ssid: WIFI_SSID.try_into().expect("SSID is too long"),
+        password: WIFI_PASS.try_into().expect("Password is too long"),
+        auth_method: AuthMethod::WPA2Personal,
+        ..Default::default()
+    }))?;
+    wifi.start()?;
+    info!("📶 WiFi starting...");
+
+    wifi.connect()?;
+    info!("📶 WiFi connecting...");
+
+    while !wifi.is_connected()? {
+        FreeRtos::delay_ms(100);
+    }
+
+    let ip_info = wifi.sta_netif().get_ip_info()?;
+    info!("📶 WiFi Connected! IP: {}", ip_info.ip);
+
+    Ok(wifi)
+}
+
+fn setup_ntp() -> anyhow::Result<()> {
+    let ntp_client = EspSntp::new_default().context("Failed to init NTP")?;
+    info!("\x1b[38;5;27m Синхронізація часу через NTP...");
+
+    while ntp_client.get_sync_status() != SyncStatus::Completed {
+        FreeRtos::delay_ms(100);
+    }
+    info!("\x1b[38;5;27m Час синхронізовано! Тепер логи будуть з реальною датою.");
+    Ok(())
 }
 
 fn log_sensor_data(level: &str, message: &str) {
@@ -145,4 +184,49 @@ fn get_uptime_string() -> String {
 fn get_timestamp() -> String {
     let now = Local::now();
     now.format(TIMESTAMP_PATTERN).to_string()
+}
+
+// todo: Move to async
+//  The ESP32-C3 is great at async/await.
+//  If you eventually want to read sensors
+//  and send data over WiFi at the same time without the sensor loop blocking the WiFi,
+//  look into the esp-hal-embassy or edge-executor crates
+fn main() -> anyhow::Result<()> {
+    link_patches();
+    EspLogger::initialize_default();
+    print_splash_screen();
+
+    let peripherals = Peripherals::take().context("Failed to take Peripherals")?;
+    disable_lighthouse(peripherals.pins.gpio8)?;
+
+    let sys_loop = EspSystemEventLoop::take()?;
+    let nvs = EspDefaultNvsPartition::take()?;
+
+    let _wifi = setup_wifi(peripherals.modem, sys_loop, nvs)?;
+
+    setup_ntp()?;
+
+    let i2c_controller = peripherals.i2c0;
+    let serial_data_pin = peripherals.pins.gpio6;
+    let serial_clock_pin = peripherals.pins.gpio7;
+
+    let i2c_driver = I2cDriver::new(
+        i2c_controller,
+        serial_data_pin,
+        serial_clock_pin,
+        &I2cConfig::new().baudrate(Hertz::from(100_000)),
+    )
+        .context("Failed to initialize I2C Driver")?;
+
+    let i2c_shared_bus = Box::leak(Box::new(RefCell::new(i2c_driver)));
+
+    let mut station = WeatherStation::new(i2c_shared_bus).context("WS init error")?;
+
+    // https://talyian.github.io/ansicolors/
+    info!("\x1b[38;5;27m✅ Sensors initialized successfully!\x1b[0m");
+
+    loop {
+        station.update();
+        FreeRtos::delay_ms(EXECUTION_DELAY);
+    }
 }

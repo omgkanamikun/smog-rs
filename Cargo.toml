@@ -19,12 +19,20 @@ opt-level = "z"
 
 [features]
 default = []
-
 experimental = ["esp-idf-svc/experimental"]
 
 [dependencies]
+# todo: JSON over MQTT/HTTP:
+#  we have to wrap measurments in a JSON struct
+#  and POST them to a REST endpoint or else.
+serde = "1.0.228"
+chrono = "0.4.42"
 log = "0.4.29"
 esp-idf-svc = "0.51.0"
+embedded-hal-bus = "0.3.0"
+anyhow = "1.0.100"
+sgp40 = "1.0.0"
+bme280-rs = "0.3.0"
 
 # --- Optional Embassy Integration ---
 # esp-idf-svc = { version = "0.51", features = ["critical-section", "embassy-time-driver", "embassy-sync"] }

@@ -5,7 +5,7 @@ use chrono::Local;
 use embedded_hal_bus::i2c::RefCellDevice;
 use esp_idf_svc::eventloop::EspSystemEventLoop;
 use esp_idf_svc::hal::delay::FreeRtos;
-use esp_idf_svc::hal::gpio::{Gpio8, PinDriver};
+use esp_idf_svc::hal::gpio::{Gpio8, Output, PinDriver};
 use esp_idf_svc::hal::i2c::{I2cConfig, I2cDriver};
 use esp_idf_svc::hal::modem::Modem;
 use esp_idf_svc::hal::peripherals::Peripherals;
@@ -139,11 +139,11 @@ fn print_splash_screen() {
     );
 }
 
-fn disable_lighthouse(gpio_pin: Gpio8) -> anyhow::Result<()> {
+fn disable_lighthouse(gpio_pin: Gpio8) -> anyhow::Result<PinDriver<'static, Gpio8, Output>> {
     let mut led_data_pin_driver =
         PinDriver::output(gpio_pin).context("Failed to initialize PinDriver")?;
     led_data_pin_driver.set_low()?;
-    Ok(())
+    Ok(led_data_pin_driver)
 }
 
 fn setup_wifi(
@@ -207,7 +207,7 @@ fn setup_ntp() -> anyhow::Result<()> {
     while ntp_client.get_sync_status() != SyncStatus::Completed {
         FreeRtos::delay_ms(100);
     }
-    info!("\x1b[38;5;27m Час синхронізовано! Тепер логи будуть з реальною датою.");
+    info!("\x1b[38;5;27m Час синхронізовано! Тепер логи будуть з актуальною датою.");
     Ok(())
 }
 
@@ -234,11 +234,10 @@ fn main() -> anyhow::Result<()> {
     print_splash_screen();
 
     let peripherals = Peripherals::take().context("Failed to take Peripherals")?;
-    disable_lighthouse(peripherals.pins.gpio8)?;
+    let _lighthouse_disabled = disable_lighthouse(peripherals.pins.gpio8)?;
 
     let sys_loop = EspSystemEventLoop::take()?;
     let nvs = EspDefaultNvsPartition::take()?;
-
     let _wifi = setup_wifi(peripherals.modem, sys_loop, nvs)?;
 
     setup_ntp()?;

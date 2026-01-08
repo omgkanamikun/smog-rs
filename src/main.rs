@@ -1,3 +1,4 @@
+use LogLevel::{Error, Warn};
 use anyhow::Context;
 use bme280_rs::{Bme280, Configuration, Oversampling, SensorMode};
 use chrono::Local;
@@ -28,6 +29,12 @@ const WIFI_PASS: &str = "Passw0rd";
 const EXECUTION_DELAY: u32 = 4000;
 const TIMESTAMP_PATTERN: &str = "%Y-%m-%d %H:%M:%S";
 const BME280_EMPTY_SAMPLE: &str = "\x1b[38;5;11m BME280 returned empty or partial data";
+
+enum LogLevel {
+    Info,
+    Warn,
+    Error,
+}
 
 struct WeatherStation {
     bme280: Bme280<I2cBusDevice, FreeRtos>,
@@ -80,24 +87,40 @@ impl WeatherStation {
                     };
                     self.log_reading(data);
                 } else {
-                    log_sensor_data("warn", BME280_EMPTY_SAMPLE);
+                    self.log_generic(Warn, BME280_EMPTY_SAMPLE, None);
                 }
             }
-            Err(e) => log_sensor_data("error", &format!("🚫 BME280 Error: {:?}", e)),
+            Err(e) => self.log_generic(Error, &format!("🚫 BME280 Error: {:?}", e), None),
         }
     }
 
     fn log_reading(&self, data: WeatherData) {
-        let uptime = get_uptime_string();
-
-        info!(
-            "\x1b[38;5;40m {} [{}] [ 🌡️  {:.2}C | 💧 {:.2}% | ☁️  {:.2} hPa ]",
-            uptime, data.timestamp, data.temperature, data.humidity, data.pressure
+        // Log the main environmental data
+        let env_msg = format!(
+            "[ 🌡️  {:.2}C | 💧 {:.2}% | ☁️  {:.2} hPa ]",
+            data.temperature, data.humidity, data.pressure
         );
+        self.log_generic(LogLevel::Info, &env_msg, Some(&data.timestamp));
 
+        // Log VOC if available
         if let Some(voc) = data.voc {
-            let prefix = format!("{} [{}]", uptime, data.timestamp);
-            info!("\x1b[38;5;40m{} 🍃 VOC Index: {}\x1b[0m", prefix, voc);
+            let voc_msg = format!("🍃 VOC Index: {}", voc);
+            self.log_generic(LogLevel::Info, &voc_msg, Some(&data.timestamp));
+        }
+    }
+
+    /// Centralized logging logic for the station
+    fn log_generic(&self, level: LogLevel, message: &str, custom_ts: Option<&str>) {
+        let uptime = get_uptime_string();
+        let ts = custom_ts
+            .map(|s| s.to_string())
+            .unwrap_or_else(get_timestamp);
+        let prefix = format!("{} [{}]", uptime, ts);
+
+        match level {
+            Error => error!("\x1b[31m{} {}\x1b[0m", prefix, message),
+            Warn => warn!("\x1b[38;5;11m{} {}\x1b[0m", prefix, message),
+            LogLevel::Info => info!("\x1b[38;5;40m{} {}\x1b[0m", prefix, message),
         }
     }
 }
@@ -188,18 +211,6 @@ fn setup_ntp() -> anyhow::Result<()> {
     Ok(())
 }
 
-fn log_sensor_data(level: &str, message: &str) {
-    let uptime = get_uptime_string();
-    let timestamp = get_timestamp();
-    let prefix = format!("{} [{}]", uptime, timestamp);
-
-    match level {
-        "error" => error!("\x1b[31m{} {}\x1b[0m", prefix, message),
-        "warn" => warn!("\x1b[33m{} {}\x1b[0m", prefix, message),
-        _ => info!("\x1b[38;5;40m{} {}\x1b[0m", prefix, message),
-    }
-}
-
 fn get_uptime_string() -> String {
     let micros = unsafe { esp_timer_get_time() };
     let seconds = micros / 1_000_000;
@@ -250,6 +261,8 @@ fn main() -> anyhow::Result<()> {
 
     // https://talyian.github.io/ansicolors/
     info!("\x1b[38;5;27m✅ Sensors initialized successfully!\x1b[0m");
+
+    FreeRtos::delay_ms(1000);
 
     loop {
         station.update();

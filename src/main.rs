@@ -40,7 +40,7 @@ impl WeatherStation {
         let sgp_i2c = RefCellDevice::new(i2c_bus);
 
         let mut bme = Bme280::new(bme_i2c, FreeRtos);
-        bme.init().with_context(|| "Failed to init BME280")?;
+        bme.init().context("Failed to init BME280")?;
 
         let bme_sampling_config = Configuration::default()
             .with_humidity_oversampling(Oversampling::Oversample1)
@@ -48,7 +48,7 @@ impl WeatherStation {
             .with_pressure_oversampling(Oversampling::Oversample1)
             .with_sensor_mode(SensorMode::Normal);
         bme.set_sampling_configuration(bme_sampling_config)
-            .with_context(|| "BME280 sensor configuration error")?;
+            .context("BME280 sensor configuration error")?;
 
         let sgp = Sgp40::new(sgp_i2c, 0x59, FreeRtos);
 
@@ -118,7 +118,7 @@ fn print_splash_screen() {
 
 fn disable_lighthouse(gpio_pin: Gpio8) -> anyhow::Result<()> {
     let mut led_data_pin_driver =
-        PinDriver::output(gpio_pin).with_context(|| "Failed to initialize PinDriver")?;
+        PinDriver::output(gpio_pin).context("Failed to initialize PinDriver")?;
     led_data_pin_driver.set_low()?;
     Ok(())
 }
@@ -138,11 +138,37 @@ fn setup_wifi(
     wifi.start()?;
     info!("📶 WiFi starting...");
 
-    wifi.connect()?;
-    info!("📶 WiFi connecting...");
+    FreeRtos::delay_ms(500);
 
-    while !wifi.is_connected()? {
-        FreeRtos::delay_ms(100);
+    let mut attempts = 0;
+    loop {
+        attempts += 1;
+        info!("📶 WiFi connecting (attempt {})...", attempts);
+        match wifi.connect() {
+            Ok(_) => {
+                let mut wait_counter = 0;
+
+                while !wifi.is_connected()? {
+                    FreeRtos::delay_ms(250);
+                    wait_counter += 1;
+                    if wait_counter > 40 {
+                        break;
+                    }
+                }
+
+                if wifi.is_connected()? {
+                    break;
+                }
+            }
+            Err(e) => warn!("📶 Connect call failed: {:?}", e),
+        }
+
+        if attempts >= 5 {
+            anyhow::bail!("📶 Failed to connect after {} attempts", attempts);
+        }
+
+        info!("📶 Connection refused or timed out, retrying in 2s...");
+        FreeRtos::delay_ms(2000);
     }
 
     let ip_info = wifi.sta_netif().get_ip_info()?;
@@ -216,7 +242,7 @@ fn main() -> anyhow::Result<()> {
         serial_clock_pin,
         &I2cConfig::new().baudrate(Hertz::from(100_000)),
     )
-        .context("Failed to initialize I2C Driver")?;
+    .context("Failed to initialize I2C Driver")?;
 
     let i2c_shared_bus = Box::leak(Box::new(RefCell::new(i2c_driver)));
 

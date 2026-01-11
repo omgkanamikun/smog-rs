@@ -35,10 +35,10 @@ cargo install espflash
 
 ### 2. Configuration
 
-Open and update your WiFi credentials: `src/main.rs`
-```rust
-const WIFI_SSID: &str = "YOUR_SSID";
-const WIFI_PASS: &str = "YOUR_PASSWORD";
+Create and update `.env` file in the root of the project with your Wi-Fi credentials:
+```dotenv
+WIFI_2GZ_SSID=YOUR_SSID
+WIFI_2GZ_PASS=YOUR_PASSWORD
 ```
 
 ### 3. Hardware Mapping (Default)

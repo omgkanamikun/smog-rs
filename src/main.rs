@@ -220,7 +220,9 @@ fn setup_ntp() -> anyhow::Result<()> {
 
     while ntp_client.get_sync_status() != SyncStatus::Completed {
         if wait_cycles >= MAX_WAIT_CYCLES {
-            warn!("\x1b[38;5;11m ⏳ NTP sync timed out. Proceeding with system time (sync will continue in background).");
+            warn!(
+                "\x1b[38;5;11m ⏳ NTP sync timed out. Proceeding with system time (sync will continue in background)."
+            );
             return Ok(());
         }
 

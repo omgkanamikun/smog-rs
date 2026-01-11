@@ -2,6 +2,7 @@ use LogLevel::{Error, Warn};
 use anyhow::Context;
 use bme280_rs::{Bme280, Configuration, Oversampling, SensorMode};
 use chrono::Local;
+use chrono_tz::Europe::Warsaw;
 use embedded_hal_bus::i2c::RefCellDevice;
 use esp_idf_svc::eventloop::EspSystemEventLoop;
 use esp_idf_svc::hal::delay::FreeRtos;
@@ -24,9 +25,9 @@ use sys::link_patches;
 type SharedI2cBus = RefCell<I2cDriver<'static>>;
 type I2cBusDevice = RefCellDevice<'static, I2cDriver<'static>>;
 
-const WIFI_SSID: &str = "NAME";
-const WIFI_PASS: &str = "Passw0rd";
-const EXECUTION_DELAY: u32 = 4000;
+const WIFI_SSID: &str = env!("WIFI_2GZ_SSID");
+const WIFI_PASS: &str = env!("WIFI_2GZ_PASS");
+const EXECUTION_DELAY: u32 = 1000;
 const TIMESTAMP_PATTERN: &str = "%Y-%m-%d %H:%M:%S";
 const BME280_EMPTY_SAMPLE: &str = "\x1b[38;5;11m BME280 returned empty or partial data";
 
@@ -73,10 +74,20 @@ impl WeatherStation {
                 {
                     FreeRtos::delay_ms(10);
 
-                    let voc = self
-                        .sgp40
-                        .measure_voc_index_with_rht(h as u16, t as i16)
-                        .ok();
+                    let voc = match self.sgp40.measure_voc_index_with_rht(
+                        h.round().clamp(0.0, 100.0) as u16,
+                        t.round().clamp(-40.0, 85.0) as i16,
+                    ) {
+                        Ok(voc_index) => Some(voc_index),
+                        Err(sgp_error) => {
+                            self.log_generic(
+                                Error,
+                                &format!("🚫 SGP40 Measuring Error: {:?}", sgp_error),
+                                None,
+                            );
+                            None
+                        }
+                    };
 
                     let data = WeatherData {
                         temperature: t,
@@ -204,9 +215,21 @@ fn setup_ntp() -> anyhow::Result<()> {
     let ntp_client = EspSntp::new_default().context("Failed to init NTP")?;
     info!("\x1b[38;5;27m Time sync in progress...");
 
+    let mut wait_cycles = 0;
+    const MAX_WAIT_CYCLES: u32 = 500;
+
     while ntp_client.get_sync_status() != SyncStatus::Completed {
+        if wait_cycles >= MAX_WAIT_CYCLES {
+            warn!(
+                "\x1b[38;5;11m ⏳ NTP sync timed out. Proceeding with system time (sync will continue in background)."
+            );
+            return Ok(());
+        }
+
         FreeRtos::delay_ms(100);
+        wait_cycles += 1;
     }
+
     info!("\x1b[38;5;27m Time is syncronised");
     Ok(())
 }
@@ -219,7 +242,7 @@ fn get_uptime_string() -> String {
 }
 
 fn get_timestamp() -> String {
-    let now = Local::now();
+    let now = Local::now().with_timezone(&Warsaw);
     now.format(TIMESTAMP_PATTERN).to_string()
 }
 

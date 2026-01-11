@@ -1,13 +1,12 @@
-use LogLevel::{Error, Warn};
-use anyhow::{Context, anyhow};
+use anyhow::{anyhow, Context};
 use bme280_rs::{Bme280, Configuration, Oversampling, SensorMode};
 use chrono::Local;
 use chrono_tz::Europe::Warsaw;
 use embassy_executor::Spawner;
+use embassy_time::Delay;
 use embassy_time::{Duration, Timer};
 use embedded_hal_bus::i2c::RefCellDevice;
 use esp_idf_svc::eventloop::EspSystemEventLoop;
-use esp_idf_svc::hal::delay::FreeRtos;
 use esp_idf_svc::hal::gpio::{Gpio8, Output, PinDriver};
 use esp_idf_svc::hal::i2c::{I2cConfig, I2cDriver};
 use esp_idf_svc::hal::modem::Modem;
@@ -23,6 +22,7 @@ use sgp40::Sgp40;
 use std::cell::RefCell;
 use sys::esp_timer_get_time;
 use sys::link_patches;
+use LogLevel::{Error, Warn};
 
 type SharedI2cBus = RefCell<I2cDriver<'static>>;
 type I2cBusDevice = RefCellDevice<'static, I2cDriver<'static>>;
@@ -40,8 +40,8 @@ enum LogLevel {
 }
 
 struct WeatherStation {
-    bme280: Bme280<I2cBusDevice, FreeRtos>,
-    sgp40: Sgp40<I2cBusDevice, FreeRtos>,
+    bme280: Bme280<I2cBusDevice, Delay>,
+    sgp40: Sgp40<I2cBusDevice, Delay>,
 }
 
 impl WeatherStation {
@@ -49,7 +49,7 @@ impl WeatherStation {
         let bme_i2c = RefCellDevice::new(i2c_bus);
         let sgp_i2c = RefCellDevice::new(i2c_bus);
 
-        let mut bme = Bme280::new(bme_i2c, FreeRtos);
+        let mut bme = Bme280::new(bme_i2c, Delay);
         bme.init().context("Failed to init BME280")?;
 
         let bme_sampling_config = Configuration::default()
@@ -60,7 +60,7 @@ impl WeatherStation {
         bme.set_sampling_configuration(bme_sampling_config)
             .context("BME280 sensor configuration error")?;
 
-        let sgp = Sgp40::new(sgp_i2c, 0x59, FreeRtos);
+        let sgp = Sgp40::new(sgp_i2c, 0x59, Delay);
 
         Ok(Self {
             bme280: bme,
@@ -279,14 +279,13 @@ async fn run(spawner: Spawner) -> anyhow::Result<()> {
         serial_clock_pin,
         &I2cConfig::new().baudrate(Hertz::from(100_000)),
     )
-    .context("Failed to initialize I2C Driver")?;
+    .context("‼️ Failed to initialize I2C Driver")?;
 
     let i2c_shared_bus = Box::leak(Box::new(RefCell::new(i2c_driver)));
 
     let station = WeatherStation::new(i2c_shared_bus).context("WS init error")?;
     let static_station = Box::leak(Box::new(station));
 
-    // todo: add into README -> // https://talyian.github.io/ansicolors/
     info!("\x1b[38;5;27m✅ Sensors initialized successfully!\x1b[0m");
 
     Timer::after(Duration::from_millis(1000)).await;

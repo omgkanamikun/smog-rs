@@ -10,7 +10,7 @@ A high-performance environmental monitoring firmware for the **ESP32-C3**, writt
 - **Resilient WiFi**: Implements a proactive connection manager with retry logic specifically tuned for picky ISP routers (e.g., Sagemcom).
 - **Time Sync (SNTP)**: Automatically synchronizes with global NTP servers on boot for accurate data logging.
 - **Modular Architecture**: Clean separation between hardware drivers, business logic, and reporting.
-- **Professional Logging**: Color-coded ANSI terminal output with microsecond-accurate uptime tracking.
+- **Professional Logging**: Color-coded ANSI terminal output with microsecond-accurate uptime tracking. See: https://talyian.github.io/ansicolors/
 
 ## 🛠️ Tech Stack
 

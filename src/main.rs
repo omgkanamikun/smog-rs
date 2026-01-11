@@ -215,18 +215,19 @@ fn setup_ntp() -> anyhow::Result<()> {
     let ntp_client = EspSntp::new_default().context("Failed to init NTP")?;
     info!("\x1b[38;5;27m Time sync in progress...");
 
-    let mut retries = 0;
-    const MAX_RETRIES: u32 = 300;
+    let mut wait_cycles = 0;
+    const MAX_WAIT_CYCLES: u32 = 300;
 
     while ntp_client.get_sync_status() != SyncStatus::Completed {
-        FreeRtos::delay_ms(100);
-        retries += 1;
-
-        if retries >= MAX_RETRIES {
-            warn!("\x1b[38;5;11m ⏳ NTP sync timed out. Proceeding with system time.");
+        if wait_cycles >= MAX_WAIT_CYCLES {
+            warn!("\x1b[38;5;11m ⏳ NTP sync timed out. Proceeding with system time (sync will continue in background).");
             return Ok(());
         }
+
+        FreeRtos::delay_ms(100);
+        wait_cycles += 1;
     }
+
     info!("\x1b[38;5;27m Time is syncronised");
     Ok(())
 }

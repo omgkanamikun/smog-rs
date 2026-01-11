@@ -1,4 +1,4 @@
-use anyhow::{anyhow, Context};
+use anyhow::{Context, anyhow};
 use bme280_rs::{Bme280, Configuration, Oversampling, SensorMode};
 use chrono::Local;
 use chrono_tz::Europe::Warsaw;
@@ -22,7 +22,6 @@ use sgp40::Sgp40;
 use std::cell::RefCell;
 use sys::esp_timer_get_time;
 use sys::link_patches;
-use LogLevel::{Error, Warn};
 
 type SharedI2cBus = RefCell<I2cDriver<'static>>;
 type I2cBusDevice = RefCellDevice<'static, I2cDriver<'static>>;
@@ -83,7 +82,7 @@ impl WeatherStation {
                         Ok(voc_index) => Some(voc_index),
                         Err(sgp_error) => {
                             self.log_generic(
-                                Error,
+                                LogLevel::Error,
                                 &format!("🚫 SGP40 Measuring Error: {:?}", sgp_error),
                                 None,
                             );
@@ -100,10 +99,10 @@ impl WeatherStation {
                     };
                     self.log_reading(data);
                 } else {
-                    self.log_generic(Warn, BME280_EMPTY_SAMPLE, None);
+                    self.log_generic(LogLevel::Warn, BME280_EMPTY_SAMPLE, None);
                 }
             }
-            Err(e) => self.log_generic(Error, &format!("🚫 BME280 Error: {:?}", e), None),
+            Err(e) => self.log_generic(LogLevel::Error, &format!("🚫 BME280 Error: {:?}", e), None),
         }
     }
 
@@ -128,8 +127,8 @@ impl WeatherStation {
         let prefix = format!("{} [{}]", uptime, ts);
 
         match level {
-            Error => error!("\x1b[31m{} {}\x1b[0m", prefix, message),
-            Warn => warn!("\x1b[38;5;11m{} {}\x1b[0m", prefix, message),
+            LogLevel::Error => error!("\x1b[31m{} {}\x1b[0m", prefix, message),
+            LogLevel::Warn => warn!("\x1b[38;5;11m{} {}\x1b[0m", prefix, message),
             LogLevel::Info => info!("\x1b[38;5;40m{} {}\x1b[0m", prefix, message),
         }
     }

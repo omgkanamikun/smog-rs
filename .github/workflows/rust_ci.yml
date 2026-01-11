@@ -12,11 +12,16 @@ on:
 env:
   CARGO_TERM_COLOR: always
   GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+  WIFI_2GZ_SSID: dummy_ssid
+  WIFI_2GZ_PASS: dummy_password
 
 jobs:
   rust-checks:
     name: Rust Checks
     runs-on: ubuntu-latest
+    env:
+      REQUESTS_CA_BUNDLE: /etc/ssl/certs/ca-certificates.crt
+      SSL_CERT_FILE: /etc/ssl/certs/ca-certificates.crt
     strategy:
       fail-fast: false
       matrix:
@@ -30,14 +35,25 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v6
+
+      - name: Ensure system CA bundle present
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ca-certificates
+          # print path to verify
+          ls -l /etc/ssl/certs/ca-certificates.crt || true
+
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@v1
         with:
           toolchain: nightly
           components: rust-src rustfmt clippy
+
       - name: Enable caching
         uses: Swatinem/rust-cache@v2
+
       - name: Install ldproxy
         run: cargo install ldproxy
+
       - name: Run command
         run: cargo ${{ matrix.action.command }} ${{ matrix.action.args }}

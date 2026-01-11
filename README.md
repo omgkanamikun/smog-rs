@@ -10,7 +10,7 @@ A high-performance environmental monitoring firmware for the **ESP32-C3**, writt
 - **Resilient WiFi**: Implements a proactive connection manager with retry logic specifically tuned for picky ISP routers (e.g., Sagemcom).
 - **Time Sync (SNTP)**: Automatically synchronizes with global NTP servers on boot for accurate data logging.
 - **Modular Architecture**: Clean separation between hardware drivers, business logic, and reporting.
-- **Professional Logging**: Color-coded ANSI terminal output with microsecond-accurate uptime tracking.
+- **Professional Logging**: Color-coded ANSI terminal output with microsecond-accurate uptime tracking. See: https://talyian.github.io/ansicolors/
 
 ## 🛠️ Tech Stack
 
@@ -35,10 +35,10 @@ cargo install espflash
 
 ### 2. Configuration
 
-Open and update your WiFi credentials: `src/main.rs`
-```rust
-const WIFI_SSID: &str = "YOUR_SSID";
-const WIFI_PASS: &str = "YOUR_PASSWORD";
+Create and update `.env` file in the root of the project with your Wi-Fi credentials:
+```dotenv
+WIFI_2GZ_SSID=YOUR_SSID
+WIFI_2GZ_PASS=YOUR_PASSWORD
 ```
 
 ### 3. Hardware Mapping (Default)

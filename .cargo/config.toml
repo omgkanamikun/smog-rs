@@ -15,5 +15,5 @@ MCU="esp32c3"
 ESP_IDF_VERSION = "v5.3.4"
 
 # In case of SSL CERT issues, it allows Python to load deps from the web:
-#REQUESTS_CA_BUNDLE = "/Users/vlad.kondratenko.dev/ca-bundle.pem"
-#SSL_CERT_FILE = "/Users/vlad.kondratenko.dev/ca-bundle.pem"
+#REQUESTS_CA_BUNDLE = "~/ca-bundle.pem"
+#SSL_CERT_FILE = "~/ca-bundle.pem"

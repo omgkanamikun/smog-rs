@@ -29,11 +29,13 @@ serde = "1.0.228"
 chrono = "0.4.42"
 chrono-tz = "0.10.4"
 log = "0.4.29"
-esp-idf-svc = "0.51.0"
-embedded-hal-bus = "0.3.0"
 anyhow = "1.0.100"
 sgp40 = "1.0.0"
 bme280-rs = "0.3.0"
+embedded-hal-bus = "0.3.0"
+esp-idf-svc = { version = "0.51.0" ,features = ["critical-section", "embassy-time-driver", "embassy-sync"]}
+embassy-time = { version = "0.4.0", features = ["generic-queue-8"] }
+embassy-executor = { version = "0.9.1", features = ["executor-thread", "arch-std"] }
 
 # --- Optional Embassy Integration ---
 # esp-idf-svc = { version = "0.51", features = ["critical-section", "embassy-time-driver", "embassy-sync"] }

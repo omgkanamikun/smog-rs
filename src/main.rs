@@ -1,11 +1,12 @@
-use LogLevel::{Error, Warn};
-use anyhow::Context;
+use anyhow::{Context, anyhow};
 use bme280_rs::{Bme280, Configuration, Oversampling, SensorMode};
 use chrono::Local;
 use chrono_tz::Europe::Warsaw;
+use embassy_executor::Spawner;
+use embassy_time::Delay;
+use embassy_time::{Duration, Timer};
 use embedded_hal_bus::i2c::RefCellDevice;
 use esp_idf_svc::eventloop::EspSystemEventLoop;
-use esp_idf_svc::hal::delay::FreeRtos;
 use esp_idf_svc::hal::gpio::{Gpio8, Output, PinDriver};
 use esp_idf_svc::hal::i2c::{I2cConfig, I2cDriver};
 use esp_idf_svc::hal::modem::Modem;
@@ -27,7 +28,7 @@ type I2cBusDevice = RefCellDevice<'static, I2cDriver<'static>>;
 
 const WIFI_SSID: &str = env!("WIFI_2GZ_SSID");
 const WIFI_PASS: &str = env!("WIFI_2GZ_PASS");
-const EXECUTION_DELAY: u32 = 1000;
+const EXECUTION_DELAY: u64 = 1000;
 const TIMESTAMP_PATTERN: &str = "%Y-%m-%d %H:%M:%S";
 const BME280_EMPTY_SAMPLE: &str = "\x1b[38;5;11m BME280 returned empty or partial data";
 
@@ -38,8 +39,8 @@ enum LogLevel {
 }
 
 struct WeatherStation {
-    bme280: Bme280<I2cBusDevice, FreeRtos>,
-    sgp40: Sgp40<I2cBusDevice, FreeRtos>,
+    bme280: Bme280<I2cBusDevice, Delay>,
+    sgp40: Sgp40<I2cBusDevice, Delay>,
 }
 
 impl WeatherStation {
@@ -47,7 +48,7 @@ impl WeatherStation {
         let bme_i2c = RefCellDevice::new(i2c_bus);
         let sgp_i2c = RefCellDevice::new(i2c_bus);
 
-        let mut bme = Bme280::new(bme_i2c, FreeRtos);
+        let mut bme = Bme280::new(bme_i2c, Delay);
         bme.init().context("Failed to init BME280")?;
 
         let bme_sampling_config = Configuration::default()
@@ -58,7 +59,7 @@ impl WeatherStation {
         bme.set_sampling_configuration(bme_sampling_config)
             .context("BME280 sensor configuration error")?;
 
-        let sgp = Sgp40::new(sgp_i2c, 0x59, FreeRtos);
+        let sgp = Sgp40::new(sgp_i2c, 0x59, Delay);
 
         Ok(Self {
             bme280: bme,
@@ -66,13 +67,13 @@ impl WeatherStation {
         })
     }
 
-    fn update(&mut self) {
+    async fn update(&mut self) {
         match self.bme280.read_sample() {
             Ok(sample) => {
                 if let (Some(t), Some(h), Some(p)) =
                     (sample.temperature, sample.humidity, sample.pressure)
                 {
-                    FreeRtos::delay_ms(10);
+                    Timer::after(Duration::from_millis(50)).await;
 
                     let voc = match self.sgp40.measure_voc_index_with_rht(
                         h.round().clamp(0.0, 100.0) as u16,
@@ -81,7 +82,7 @@ impl WeatherStation {
                         Ok(voc_index) => Some(voc_index),
                         Err(sgp_error) => {
                             self.log_generic(
-                                Error,
+                                LogLevel::Error,
                                 &format!("🚫 SGP40 Measuring Error: {:?}", sgp_error),
                                 None,
                             );
@@ -98,29 +99,26 @@ impl WeatherStation {
                     };
                     self.log_reading(data);
                 } else {
-                    self.log_generic(Warn, BME280_EMPTY_SAMPLE, None);
+                    self.log_generic(LogLevel::Warn, BME280_EMPTY_SAMPLE, None);
                 }
             }
-            Err(e) => self.log_generic(Error, &format!("🚫 BME280 Error: {:?}", e), None),
+            Err(e) => self.log_generic(LogLevel::Error, &format!("🚫 BME280 Error: {:?}", e), None),
         }
     }
 
     fn log_reading(&self, data: WeatherData) {
-        // Log the main environmental data
         let env_msg = format!(
             "[ 🌡️ Temp {:.2}C | 💧Humidity {:.2}% | ☁️ Pressure {:.2} hPa ]",
             data.temperature, data.humidity, data.pressure
         );
         self.log_generic(LogLevel::Info, &env_msg, Some(&data.timestamp));
 
-        // Log VOC if available
         if let Some(voc) = data.voc {
             let voc_msg = format!("🍃 Indoor air quality (VOC) index: {}", voc);
             self.log_generic(LogLevel::Info, &voc_msg, Some(&data.timestamp));
         }
     }
 
-    /// Centralized logging logic for the station
     fn log_generic(&self, level: LogLevel, message: &str, custom_ts: Option<&str>) {
         let uptime = get_uptime_string();
         let ts = custom_ts
@@ -129,8 +127,8 @@ impl WeatherStation {
         let prefix = format!("{} [{}]", uptime, ts);
 
         match level {
-            Error => error!("\x1b[31m{} {}\x1b[0m", prefix, message),
-            Warn => warn!("\x1b[38;5;11m{} {}\x1b[0m", prefix, message),
+            LogLevel::Error => error!("\x1b[31m{} {}\x1b[0m", prefix, message),
+            LogLevel::Warn => warn!("\x1b[38;5;11m{} {}\x1b[0m", prefix, message),
             LogLevel::Info => info!("\x1b[38;5;40m{} {}\x1b[0m", prefix, message),
         }
     }
@@ -157,7 +155,7 @@ fn disable_lighthouse(gpio_pin: Gpio8) -> anyhow::Result<PinDriver<'static, Gpio
     Ok(led_data_pin_driver)
 }
 
-fn setup_wifi(
+async fn setup_wifi(
     modem: Modem,
     sys_loop: EspSystemEventLoop,
     nvs: EspDefaultNvsPartition,
@@ -172,7 +170,7 @@ fn setup_wifi(
     wifi.start()?;
     info!("📶 WiFi starting...");
 
-    FreeRtos::delay_ms(500);
+    Timer::after(Duration::from_millis(500)).await;
 
     let mut attempts = 0;
     loop {
@@ -183,7 +181,8 @@ fn setup_wifi(
                 let mut wait_counter = 0;
 
                 while !wifi.is_connected()? {
-                    FreeRtos::delay_ms(250);
+                    Timer::after(Duration::from_millis(250)).await;
+
                     wait_counter += 1;
                     if wait_counter > 40 {
                         break;
@@ -202,7 +201,7 @@ fn setup_wifi(
         }
 
         info!("📶 Connection refused or timed out, retrying in 2s...");
-        FreeRtos::delay_ms(2000);
+        Timer::after(Duration::from_millis(2000)).await;
     }
 
     let ip_info = wifi.sta_netif().get_ip_info()?;
@@ -211,9 +210,9 @@ fn setup_wifi(
     Ok(wifi)
 }
 
-fn setup_ntp() -> anyhow::Result<()> {
-    let ntp_client = EspSntp::new_default().context("Failed to init NTP")?;
-    info!("\x1b[38;5;27m Time sync in progress...");
+async fn setup_ntp() -> anyhow::Result<EspSntp<'static>> {
+    let ntp_client = EspSntp::new_default().context("‼️ Failed to init NTP")?;
+    info!("\x1b[38;5;27m ⏳Time sync in progress...");
 
     let mut wait_cycles = 0;
     const MAX_WAIT_CYCLES: u32 = 500;
@@ -223,15 +222,16 @@ fn setup_ntp() -> anyhow::Result<()> {
             warn!(
                 "\x1b[38;5;11m ⏳ NTP sync timed out. Proceeding with system time (sync will continue in background)."
             );
-            return Ok(());
+            anyhow::bail!("‼️⏳ NTP sync timed out")
         }
 
-        FreeRtos::delay_ms(100);
+        Timer::after(Duration::from_millis(100)).await;
+
         wait_cycles += 1;
     }
 
-    info!("\x1b[38;5;27m Time is syncronised");
-    Ok(())
+    info!("\x1b[38;5;27m ⏳Time is syncronised");
+    Ok(ntp_client)
 }
 
 fn get_uptime_string() -> String {
@@ -246,24 +246,27 @@ fn get_timestamp() -> String {
     now.format(TIMESTAMP_PATTERN).to_string()
 }
 
-// todo: Move to async
-//  The ESP32-C3 is great at async/await.
-//  If you eventually want to read sensors
-//  and send data over WiFi at the same time without the sensor loop blocking the WiFi,
-//  look into the esp-hal-embassy or edge-executor crates
-fn main() -> anyhow::Result<()> {
+#[embassy_executor::main]
+async fn main(spawner: Spawner) {
     link_patches();
     EspLogger::initialize_default();
+
+    if let Err(e) = run(spawner).await {
+        error!("‼️ Fatal error during execution: {:?}", e);
+    }
+}
+
+async fn run(spawner: Spawner) -> anyhow::Result<()> {
     print_splash_screen();
 
     let peripherals = Peripherals::take().context("Failed to take Peripherals")?;
-    let _lighthouse_disabled = disable_lighthouse(peripherals.pins.gpio8)?;
+    let _lighthouse_guard = disable_lighthouse(peripherals.pins.gpio8)?;
 
     let sys_loop = EspSystemEventLoop::take()?;
     let nvs = EspDefaultNvsPartition::take()?;
-    let _wifi = setup_wifi(peripherals.modem, sys_loop, nvs)?;
+    let _wifi_guard = setup_wifi(peripherals.modem, sys_loop, nvs).await;
 
-    setup_ntp()?;
+    let _ntp_guard = setup_ntp().await?;
 
     let i2c_controller = peripherals.i2c0;
     let serial_data_pin = peripherals.pins.gpio6;
@@ -275,19 +278,32 @@ fn main() -> anyhow::Result<()> {
         serial_clock_pin,
         &I2cConfig::new().baudrate(Hertz::from(100_000)),
     )
-    .context("Failed to initialize I2C Driver")?;
+    .context("‼️ Failed to initialize I2C Driver")?;
 
     let i2c_shared_bus = Box::leak(Box::new(RefCell::new(i2c_driver)));
 
-    let mut station = WeatherStation::new(i2c_shared_bus).context("WS init error")?;
+    let station = WeatherStation::new(i2c_shared_bus).context("WS init error")?;
+    let static_station = Box::leak(Box::new(station));
 
-    // https://talyian.github.io/ansicolors/
     info!("\x1b[38;5;27m✅ Sensors initialized successfully!\x1b[0m");
 
-    FreeRtos::delay_ms(1000);
+    Timer::after(Duration::from_millis(1000)).await;
 
+    spawner
+        .spawn(sensor_task(static_station))
+        .map_err(|_| anyhow!("‼️ Failed to spawn sensor task"))?;
+
+    // IMPORTANT: The run function must not end immediately,
+    // or the Wi-Fi/NTP resources might be dropped.
     loop {
-        station.update();
-        FreeRtos::delay_ms(EXECUTION_DELAY);
+        Timer::after(Duration::from_millis(3600)).await;
+    }
+}
+
+#[embassy_executor::task]
+async fn sensor_task(station: &'static mut WeatherStation) {
+    loop {
+        station.update().await;
+        Timer::after(Duration::from_millis(EXECUTION_DELAY)).await;
     }
 }

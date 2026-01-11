@@ -218,9 +218,6 @@ async fn setup_ntp() -> anyhow::Result<EspSntp<'static>> {
     let mut wait_cycles = 0;
     const MAX_WAIT_CYCLES: u32 = 500;
 
-    let mut wait_cycles = 0;
-    const MAX_WAIT_CYCLES: u32 = 500;
-
     while ntp_client.get_sync_status() != SyncStatus::Completed {
         if wait_cycles >= MAX_WAIT_CYCLES {
             warn!(

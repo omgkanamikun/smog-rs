@@ -14,6 +14,8 @@ env:
   GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
   WIFI_2GZ_SSID: dummy_ssid
   WIFI_2GZ_PASS: dummy_password
+  HTTP_SENDING_ENABLED: false
+  HTTP_CONSUMER_ENDPOINT_URL: http://dummy_endpoint
 
 jobs:
   rust-checks:

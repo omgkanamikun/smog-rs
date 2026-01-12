@@ -68,10 +68,5 @@ cargo run --release
 - **Type Aliasing**: Extensive use of `type` aliases (e.g., `SharedI2cBus`, `I2cBusDevice`) simplifies the code and improves readability.
 - **Resource Guarding**: The Status LED (GPIO8) is held in a `PinDriver` guard in `main` to prevent the hardware from resetting when the driver is dropped.
 
-## 📝 Roadmap
-- [ ] Async/Await migration using `embassy-executor`.
-- [ ] MQTT integration for Home Assistant discovery.
-- [ ] Deep Sleep support for battery-powered operation.
-
 ## 📜 License
 MIT / Apache-2.0

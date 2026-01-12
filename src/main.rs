@@ -1,3 +1,4 @@
+#![feature(const_cmp)]
 mod config;
 mod logging;
 mod models;
@@ -6,7 +7,7 @@ mod sensors;
 mod tasks;
 mod time_utils;
 
-use crate::config::I2C_BAUDRATE_ESP32;
+use crate::config::I2C_BAUDRATE_HERTZ;
 use crate::sensors::WeatherStation;
 use anyhow::{Context, anyhow};
 use embassy_executor::Spawner;
@@ -57,7 +58,7 @@ async fn run(spawner: Spawner) -> anyhow::Result<()> {
         i2c_controller,
         serial_data_pin,
         serial_clock_pin,
-        &I2cConfig::new().baudrate(Hertz::from(I2C_BAUDRATE_ESP32)),
+        &I2cConfig::new().baudrate(Hertz::from(I2C_BAUDRATE_HERTZ)),
     )
     .context("‼️ Failed to initialize I2C Driver")?;
 
@@ -71,13 +72,17 @@ async fn run(spawner: Spawner) -> anyhow::Result<()> {
     Timer::after(Duration::from_millis(1000)).await;
 
     spawner
+        .spawn(tasks::network_task())
+        .map_err(|_| anyhow!("‼️ Failed to spawn network task"))?;
+
+    spawner
         .spawn(tasks::sensor_task(static_station))
         .map_err(|_| anyhow!("‼️ Failed to spawn sensor task"))?;
 
     // IMPORTANT: The run function must not end immediately,
     // or the Wi-Fi/NTP resources might be dropped.
     loop {
-        Timer::after(Duration::from_millis(3600)).await;
+        Timer::after(Duration::from_secs(86400)).await;
     }
 }
 

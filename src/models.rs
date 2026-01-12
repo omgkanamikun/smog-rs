@@ -1,3 +1,6 @@
+use serde::Serialize;
+
+#[derive(Serialize, Clone, Debug)]
 pub(crate) struct WeatherData {
     pub(crate) temperature: f32,
     pub(crate) humidity: f32,

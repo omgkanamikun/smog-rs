@@ -27,16 +27,6 @@ use std::cell::RefCell;
 type SharedI2cBus = RefCell<I2cDriver<'static>>;
 type I2cBusDevice = RefCellDevice<'static, I2cDriver<'static>>;
 
-#[embassy_executor::main]
-async fn main(spawner: Spawner) {
-    link_patches();
-    EspLogger::initialize_default();
-
-    if let Err(e) = run(spawner).await {
-        error!("‼️ Fatal error during execution: {:?}", e);
-    }
-}
-
 async fn run(spawner: Spawner) -> anyhow::Result<()> {
     logging::print_splash_screen();
 
@@ -91,4 +81,14 @@ fn disable_lighthouse(gpio_pin: Gpio8) -> anyhow::Result<PinDriver<'static, Gpio
         PinDriver::output(gpio_pin).context("Failed to initialize PinDriver")?;
     led_data_pin_driver.set_low()?;
     Ok(led_data_pin_driver)
+}
+
+#[embassy_executor::main]
+async fn main(spawner: Spawner) {
+    link_patches();
+    EspLogger::initialize_default();
+
+    if let Err(e) = run(spawner).await {
+        error!("‼️ Fatal error during execution: {:?}", e);
+    }
 }

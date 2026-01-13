@@ -1,6 +1,5 @@
 use crate::config::{
-    EXECUTION_DELAY_MS, HTTP_CONSUMER_ENDPOINT_URL, HTTP_SEND_INTERVAL_MS, HTTP_SENDING_ENABLED,
-    is_sending_enabled,
+    EXECUTION_DELAY_MS, HTTP_CONSUMER_ENDPOINT_URL, HTTP_SEND_INTERVAL_MS, is_sending_enabled,
 };
 use crate::logging::log_weather_data;
 use crate::models::WeatherData;

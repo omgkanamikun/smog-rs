@@ -11,5 +11,5 @@ pub(crate) const BME280_EMPTY_SAMPLE_MSG: &str =
 pub(crate) const I2C_BAUDRATE_HERTZ: u32 = 100_000;
 
 pub(crate) fn is_sending_enabled() -> bool {
-    env!("HTTP_SENDING_ENABLED") == "true"
+    HTTP_SENDING_ENABLED == "true"
 }

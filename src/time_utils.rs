@@ -1,7 +1,7 @@
-use crate::config::TIMESTAMP_PATTERN;
+use crate::config::{TIMESTAMP_PATTERN, TIMEZONE};
 use anyhow::Context;
-use chrono::Local;
-use chrono_tz::Europe::Warsaw;
+use chrono::Utc;
+use chrono_tz::Tz;
 use embassy_time::{Duration, Timer};
 use esp_idf_svc::sntp::{EspSntp, SyncStatus};
 use esp_idf_svc::sys::esp_timer_get_time;
@@ -32,7 +32,8 @@ pub(crate) async fn setup_ntp() -> anyhow::Result<EspSntp<'static>> {
 }
 
 pub(crate) fn get_timestamp() -> String {
-    let now = Local::now().with_timezone(&Warsaw);
+    let tz: Tz = TIMEZONE.parse().unwrap_or(chrono_tz::UTC);
+    let now = Utc::now().with_timezone(&tz);
     now.format(TIMESTAMP_PATTERN).to_string()
 }
 

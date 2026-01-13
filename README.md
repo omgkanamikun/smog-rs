@@ -43,7 +43,13 @@ cargo install ldproxy
 
 ### 2. Environment Configuration
 
-The app uses environment variables at **compile time**. Create a `.env` file in the root directory:
+The app uses environment variables at **compile time**. Create a `.env` file in the root directory by copying the template:
+
+```bash
+cp .env.example .env
+```
+
+Edit `.env` with your actual credentials:
 
 ```dotenv
 # WiFi Credentials
@@ -53,6 +59,9 @@ WIFI_2GZ_PASS=your_password
 # HTTP Reporting Configuration
 HTTP_SENDING_ENABLED=true
 HTTP_CONSUMER_ENDPOINT_URL=http://your-api-endpoint.com/data
+
+# Localization
+TIMEZONE=Europe/Warsaw
 ```
 
 *Note: Changing these values requires a re-compilation (`cargo run --release`).*
@@ -100,4 +109,5 @@ The app sends a JSON payload to the configured endpoint:
 - **Shared Bus**: `RefCellDevice` from `embedded-hal-bus` allows safe, synchronous access to the I2C peripheral from multiple drivers within the same executor.
 
 ## 📜 License
-MIT / Apache-2.0
+MIT
+

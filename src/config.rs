@@ -9,3 +9,7 @@ pub(crate) const BME280_EMPTY_SAMPLE_MSG: &str =
     "\x1b[38;5;11m 〇 BME280 returned empty or partial data";
 
 pub(crate) const I2C_BAUDRATE_HERTZ: u32 = 100_000;
+
+pub(crate) fn is_sending_enabled() -> bool {
+    env!("HTTP_SENDING_ENABLED") == "true"
+}

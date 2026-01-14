@@ -86,6 +86,34 @@ Connect your ESP32-C3 via USB and execute:
 cargo run --release
 ```
 
+## 🛠️ Development Workflow (Justfile)
+
+This project includes a `Justfile` to simplify common development tasks. If you have [`just`](https://github.com/casey/just) installed, you can use the following commands:
+
+| Command        | Description                                                                            |
+|:---------------|:---------------------------------------------------------------------------------------|
+| `just setup`   | Full environment setup: installs tools, initializes ESP toolchain, and creates `.env`. |
+| `just build`   | Compiles the project in release mode.                                                  |
+| `just run`     | **Recommended**: Builds, flashes, and starts the serial monitor.                       |
+| `just flash`   | Flashes the pre-compiled release binary to the device.                                 |
+| `just monitor` | Opens the serial monitor for an already flashed device.                                |
+| `just clean`   | Removes build artifacts.                                                               |
+
+*To see all available commands, simply run `just`.*
+
+## ⚙️ Optimization Profile
+
+The `release` profile in `Cargo.toml` is configured for high performance and minimal binary size:
+
+- **`opt-level = "s"`**: Optimizes for binary size while maintaining good performance.
+- **`lto = "fat"`**: Enables Link-Time Optimization across all dependencies for maximum dead-code elimination.
+- **`codegen-units = 1`**: Increases optimization potential by treating the crate as a single unit.
+- **`panic = "abort"`**: Reduces binary size by removing stack unwinding code.
+- **`strip = true`**: Removes debug symbols from the ELF file (note: this reduces file size on disk, not the size of the flashed image).
+
+> [!TIP]
+> **Debugging:** If you need to debug a release build with a debugger or detailed backtraces, you should set `strip = false` and `codegen-units = 16` (or comment them out) in `Cargo.toml` to preserve symbol information and speed up compilation.
+
 ## 📊 Data Model
 
 The app sends a JSON payload to the configured endpoint:

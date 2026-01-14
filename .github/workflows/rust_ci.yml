@@ -63,7 +63,7 @@ jobs:
       - name: Install System Dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y build-essential cmake ca-certificates
+          sudo apt-get install -y ca-certificates
 
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@v1
@@ -78,7 +78,4 @@ jobs:
         run: cargo install ldproxy
 
       - name: Build
-        env:
-          CARGO_LINKER: ldproxy
-          PATH: ${{ github.workspace }}/.cargo/bin:/home/runner/.cargo/bin:${{ env.PATH }}
         run: cargo build --release

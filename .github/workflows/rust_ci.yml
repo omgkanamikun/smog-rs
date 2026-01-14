@@ -78,7 +78,12 @@ jobs:
         run: |
           curl -L --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/cargo-bins/cargo-binstall/main/install-from-binstall-release.sh | bash
           cargo binstall -y ldproxy
-          echo "$HOME/.cargo/bin" >> $GITHUB_PATH
+          LDPROXY_PATH=$(which ldproxy || echo "$HOME/.cargo/bin/ldproxy")
+          sudo ln -s "$LDPROXY_PATH" /usr/local/bin/ldproxy
+          ldproxy --version
 
       - name: Build
+        env:
+          CARGO_LINKER: ldproxy
+          PATH: ${{ github.workspace }}/.cargo/bin:/home/runner/.cargo/bin:${{ env.PATH }}
         run: cargo build --release

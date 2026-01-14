@@ -75,12 +75,7 @@ jobs:
         uses: Swatinem/rust-cache@v2
 
       - name: Install ldproxy
-        run: |
-          curl -L --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/cargo-bins/cargo-binstall/main/install-from-binstall-release.sh | bash
-          cargo binstall -y ldproxy
-          LDPROXY_PATH=$(which ldproxy || echo "$HOME/.cargo/bin/ldproxy")
-          sudo ln -s "$LDPROXY_PATH" /usr/local/bin/ldproxy
-          ldproxy --version
+        run: cargo install ldproxy
 
       - name: Build
         env:

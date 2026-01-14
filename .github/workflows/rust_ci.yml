@@ -9,6 +9,9 @@ on:
   pull_request:
   workflow_dispatch:
 
+permissions:
+  contents: read
+
 env:
   CARGO_TERM_COLOR: always
   GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -18,32 +21,38 @@ env:
   HTTP_CONSUMER_ENDPOINT_URL: http://dummy_endpoint
 
 jobs:
-  rust-checks:
-    name: Rust Checks
+  lints:
+    name: Lints (Fmt & Clippy)
     runs-on: ubuntu-latest
-    env:
-      REQUESTS_CA_BUNDLE: /etc/ssl/certs/ca-certificates.crt
-      SSL_CERT_FILE: /etc/ssl/certs/ca-certificates.crt
-    strategy:
-      fail-fast: false
-      matrix:
-        action:
-          - command: build
-            args: --release
-          - command: fmt
-            args: --all -- --check --color always
-          - command: clippy
-            args: --all-targets --all-features --workspace -- -D warnings
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v6
+      - uses: actions/checkout@v6.0.2
 
-      - name: Ensure system CA bundle present
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@v1
+        with:
+          toolchain: nightly
+          components: rustfmt, clippy
+
+      - name: Enable caching
+        uses: Swatinem/rust-cache@v2
+
+      - name: Run rustfmt
+        run: cargo fmt --all -- --check
+
+      - name: Run clippy
+        run: cargo clippy --all-targets --all-features --workspace -- -D warnings
+
+  build:
+    name: Build Release
+    runs-on: ubuntu-latest
+    needs: lints
+    steps:
+      - uses: actions/checkout@v6.0.2
+
+      - name: Install System Dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y ca-certificates
-          # print path to verify
-          ls -l /etc/ssl/certs/ca-certificates.crt || true
+          sudo apt-get install -y cmake ninja-build ca-certificates
 
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@v1
@@ -55,7 +64,8 @@ jobs:
         uses: Swatinem/rust-cache@v2
 
       - name: Install ldproxy
-        run: cargo install ldproxy
+        run: |
+          which ldproxy || cargo install ldproxy
 
-      - name: Run command
-        run: cargo ${{ matrix.action.command }} ${{ matrix.action.args }}
+      - name: Build
+        run: cargo build --release

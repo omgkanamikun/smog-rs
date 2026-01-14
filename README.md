@@ -9,7 +9,6 @@ A high-performance environmental monitoring firmware for the **ESP32-C3**, writt
 - **Asynchronous Execution**: Powered by `embassy-executor` for efficient multitasking on the ESP32.
 - **Robust I2C Management**: Uses `embedded-hal-bus` with `RefCell` to safely share a single I2C bus between multiple sensors (BME280 and SGP40).
 - **Resilient Wi-Fi**: Implements a proactive connection manager with retry logic specifically tuned for unstable routers.
-- **"Phoenix" Network Strategy**: Automatic recovery from HTTP client internal errors by recreating the client on failure, bypassing known `esp-idf-svc` state machine quirks.
 - **Time Sync (SNTP)**: Automatically synchronizes with global NTP servers (configured for Europe/Warsaw) on boot for accurate data timestamping.
 - **HTTP Reporting**: Support for sending sensor data to a JSON endpoint with configurable intervals.
 - **Professional Logging**: Color-coded ANSI terminal output with microsecond-accurate uptime tracking and formatted timestamps.

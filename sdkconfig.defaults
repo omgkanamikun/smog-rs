@@ -8,3 +8,8 @@ CONFIG_ESP_MAIN_TASK_STACK_SIZE=8000
 # Workaround for https://github.com/espressif/esp-idf/issues/7631
 #CONFIG_MBEDTLS_CERTIFICATE_BUNDLE=n
 #CONFIG_MBEDTLS_CERTIFICATE_BUNDLE_DEFAULT_FULL=n
+
+
+# Network debug https://docs.espressif.com/projects/esp-idf/en/stable/esp32/api-reference/kconfig-reference.html
+#CONFIG_LOG_DEFAULT_LEVEL_VERBOSE=y
+#CONFIG_LOG_MAXIMUM_LEVEL_VERBOSE=y

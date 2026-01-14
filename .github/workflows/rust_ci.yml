@@ -3,11 +3,21 @@ name: Continuous Integration
 on:
   push:
     branches:
-      - main
+      - master
     paths-ignore:
       - "**/README.md"
+      - "LICENSE"
+      - ".gitignore"
   pull_request:
+    paths-ignore:
+      - "**/README.md"
+      - "LICENSE"
+      - ".gitignore"
   workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 permissions:
   contents: read
@@ -53,7 +63,7 @@ jobs:
       - name: Install System Dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y cmake ninja-build ca-certificates
+          sudo apt-get install -y ca-certificates
 
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@v1
@@ -66,7 +76,8 @@ jobs:
 
       - name: Install ldproxy
         run: |
-          which ldproxy || cargo install ldproxy
+          curl -L --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/cargo-bins/cargo-binstall/main/install-from-binstall-release.sh | bash
+          cargo binstall -y ldproxy
 
       - name: Build
         run: cargo build --release

@@ -19,6 +19,7 @@ env:
   WIFI_2GZ_PASS: dummy_password
   HTTP_SENDING_ENABLED: false
   HTTP_CONSUMER_ENDPOINT_URL: http://dummy_endpoint
+  TIMEZONE: UTC
 
 jobs:
   lints:

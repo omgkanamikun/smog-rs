@@ -32,8 +32,8 @@ env:
   TIMEZONE: UTC
 
 jobs:
-  lints:
-    name: Lints (Fmt & Clippy)
+  fmt:
+    name: Rustfmt
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6.0.2
@@ -42,13 +42,28 @@ jobs:
         uses: dtolnay/rust-toolchain@v1
         with:
           toolchain: nightly
-          components: rustfmt, clippy
+          components: rustfmt
 
       - name: Enable caching
         uses: Swatinem/rust-cache@v2
 
       - name: Run rustfmt
         run: cargo fmt --all -- --check
+  clippy:
+    name: Clippy
+    runs-on: ubuntu-latest
+    needs: fmt
+    steps:
+      - uses: actions/checkout@v6.0.2
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@v1
+        with:
+          toolchain: nightly
+          components: clippy
+
+      - name: Enable caching
+        uses: Swatinem/rust-cache@v2
 
       - name: Run clippy
         run: cargo clippy --all-targets --all-features --workspace -- -D warnings
@@ -56,7 +71,7 @@ jobs:
   build:
     name: Build Release
     runs-on: ubuntu-latest
-    needs: lints
+    needs: clippy
     steps:
       - uses: actions/checkout@v6.0.2
 

@@ -30,6 +30,7 @@ impl WeatherStation {
         bme.set_sampling_configuration(bme_sampling_config)
             .context("‼️BME280 sensor configuration error")?;
 
+        // todo: if it is returning 1 for some time after start - reboot MCU
         let sgp = Sgp40::new(sgp_i2c, 0x59, Delay);
 
         Ok(Self {

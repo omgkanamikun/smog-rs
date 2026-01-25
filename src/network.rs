@@ -34,6 +34,7 @@ pub(crate) async fn setup_wifi(
 
     let mut attempts = 0;
     const MAX_ATTEMPTS: u32 = 40;
+    const MAX_CONNECTED_WAIT_TICKS: u32 = 40;
 
     loop {
         attempts += 1;
@@ -48,7 +49,7 @@ pub(crate) async fn setup_wifi(
                     Timer::after_millis(250).await;
 
                     wait_counter += 1;
-                    if wait_counter > MAX_ATTEMPTS {
+                    if wait_counter > MAX_CONNECTED_WAIT_TICKS {
                         break;
                     }
                 }

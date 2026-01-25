@@ -25,54 +25,18 @@ enum RebootReason {
 
 static REBOOT_SIGNAL: Signal<CriticalSectionRawMutex, RebootReason> = Signal::new();
 
-const SGP_40_WARMUP_SECS: u64 = 60;
-const SGP_40_STUCK_AT_ONE_THRESHOLD: u16 = 20;
-
-struct Sgp40Health {
-    boot_time: Instant,
-    consecutive_one: u16,
-}
-
-impl Sgp40Health {
-    fn new() -> Self {
-        Self {
-            boot_time: Instant::now(),
-            consecutive_one: 0,
-        }
-    }
-
-    fn observe(&mut self, voc: Option<u16>) -> bool {
-        if self.boot_time.elapsed() < Duration::from_secs(SGP_40_WARMUP_SECS) {
-            self.consecutive_one = 0;
-            return false;
-        }
-
-        match voc {
-            Some(1) => {
-                self.consecutive_one = self.consecutive_one.saturating_add(1);
-                self.consecutive_one >= SGP_40_STUCK_AT_ONE_THRESHOLD
-            }
-            Some(_) | None => {
-                self.consecutive_one = 0;
-                false
-            }
-        }
-    }
-}
-
 #[embassy_executor::task]
 pub(crate) async fn sensor_task(station: &'static mut WeatherStation) {
     let mut last_send_time = Instant::now();
     let send_interval = Duration::from_millis(HTTP_SEND_INTERVAL_MS);
 
-    let mut sgp40health = Sgp40Health::new();
-
     loop {
         if let Some(data) = station.read_sensor_data().await {
             log_weather_data(&data);
 
-            let is_stuck_with_one = sgp40health.observe(data.voc);
-            if is_stuck_with_one {
+            let is_stuck_at_one = station.sgp40_stuck_at_one(data.voc);
+
+            if is_stuck_at_one {
                 warn!("‼️ SGP40 appears stuck at VOC=1. Requesting reboot...");
                 REBOOT_SIGNAL.signal(RebootReason::Sgp40StuckAtOne)
             }
@@ -92,11 +56,7 @@ pub(crate) async fn reboot_supervisor_task() {
 
     Timer::after(Duration::from_millis(200)).await;
 
-    unsafe {
-        esp_idf_svc::sys::esp_restart();
-    }
-
-    unreachable!("Can't be reached after ESP32 Reboot");
+    unsafe { esp_idf_svc::sys::esp_restart() }
 }
 
 /// The Http Client resets on every HTTP call to prevent ESP_FAIL 'connection is not in the initial phase'

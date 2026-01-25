@@ -20,6 +20,41 @@ enum RebootReason {
 
 static REBOOT_SIGNAL: Signal<CriticalSectionRawMutex, RebootReason> = Signal::new();
 
+/// Sensor polling task.
+///
+/// Continuously reads weather data from the sensor station at a fixed interval and manages data flow.
+///
+/// # Behavior
+///
+/// This task performs the following operations in an infinite loop:
+/// 1. Reads sensor data from the `WeatherStation` (BME280 + SGP40)
+/// 2. Logs the retrieved weather data to the console
+/// 3. Checks if the SGP40 VOC sensor is stuck at `VOC=1` (a known failure mode)
+/// 4. If a stuck condition is detected, signals the reboot supervisor to restart the MCU
+/// 5. Attempts to send data to the network task via `NETWORK_CHANNEL` if the sending interval has elapsed
+/// 6. Waits for `EXECUTION_DELAY_MS` before the next iteration
+///
+/// # Data Flow
+///
+/// - Successfully read sensor data is sent to `NETWORK_CHANNEL` for HTTP transmission
+/// - The channel uses a non-blocking `try_send()` to avoid blocking if the network task is busy
+/// - Data is only sent if `HTTP_SEND_INTERVAL_MS` has elapsed since the last sending
+///
+/// # SGP40 Stuck Detection
+///
+/// The SGP40 sensor can occasionally get stuck, returning `VOC=1`. When detected:
+/// - A warning is logged
+/// - The `REBOOT_SIGNAL` is triggered with `RebootReason::Sgp40StuckAtOne`
+/// - The `reboot_supervisor_task` will handle the actual MCU restart
+///
+/// # Arguments
+///
+/// * `station` - A static mutable reference to the initialized `WeatherStation` instance
+///
+/// # Panics
+///
+/// This task runs indefinitely and should never panic under normal operation.
+/// If sensor reads fail, they are logged and the task continues.
 #[embassy_executor::task]
 pub(crate) async fn sensor_task(station: &'static mut WeatherStation) {
     let mut last_send_time = Instant::now();
@@ -44,6 +79,19 @@ pub(crate) async fn sensor_task(station: &'static mut WeatherStation) {
     }
 }
 
+/// Reboot supervisor.
+///
+/// Why this task exists:
+/// - The Sensirion SGP40 may occasionally get "stuck" and keep returning `VOC=1` indefinitely.
+/// - Instead of rebooting from inside the sensor loop (which tends to spread "reset logic"
+///   across the codebase), the sensor task emits a single reboot request signal.
+/// - This task is the only component allowed to perform a full MCU restart (`esp_restart()`),
+///   keeping reset behavior centralized, testable (as policy), and easy to adjust.
+///
+/// Flow:
+/// 1) `sensor_task` detects "SGP40 stuck at 1" **after a warm-up window**
+/// 2) it signals `REBOOT_SIGNAL` with a `RebootReason`
+/// 3) this task waits for the signal, optionally delays for a log flush, and reboots the MCU
 #[embassy_executor::task]
 pub(crate) async fn reboot_supervisor_task() {
     let reason = REBOOT_SIGNAL.wait().await;

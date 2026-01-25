@@ -1,3 +1,4 @@
+use crate::config::TIMEZONE;
 use crate::logging::{log_empty_sample, log_sensor_error};
 use crate::models::WeatherData;
 use crate::{I2cBusDevice, SharedI2cBus, time_utils};
@@ -50,7 +51,7 @@ impl WeatherStation {
                 if let (Some(t), Some(h), Some(p)) =
                     (sample.temperature, sample.humidity, sample.pressure)
                 {
-                    Timer::after(Duration::from_millis(50)).await;
+                    Timer::after_millis(50).await;
 
                     let voc = match self.sgp40.measure_voc_index_with_rht(
                         h.round().clamp(0.0, 100.0) as u16,
@@ -68,7 +69,9 @@ impl WeatherStation {
                         humidity: h,
                         pressure: p / 100.0, // Standard conversion to hPa
                         voc,
-                        timestamp: time_utils::get_timestamp(),
+                        time_synced: time_utils::is_time_synced(),
+                        timestamp_unix_s: time_utils::timestamp_unix_s(),
+                        timezone: TIMEZONE,
                     })
                 } else {
                     log_empty_sample();

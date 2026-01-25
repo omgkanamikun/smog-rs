@@ -125,9 +125,17 @@ The app sends a JSON payload to the configured endpoint:
   "humidity": 45.12,
   "pressure": 1013.25,
   "voc": 105,
-  "timestamp": "2026-01-08 21:15:30"
+  "time_synced": true,
+  "timestamp_unix_s": 1736376930,
+  "timezone": "Europe/Warsaw"
 }
 ```
+
+### Timestamp semantics
+
+- `timestamp_unix_s` is **Unix epoch seconds (UTC)** (an absolute moment in time).
+- `timezone` is an **IANA timezone identifier** used for display/localization (e.g. `"Europe/Warsaw"`).
+- `time_synced` indicates whether SNTP has synchronized the device clock. If `false`, consumers may prefer using ingestion time (`received_at`) or storing the sample as “unsynced” until a valid clock is available.
 
 ## 🛠️ Architecture & Design Patterns
 

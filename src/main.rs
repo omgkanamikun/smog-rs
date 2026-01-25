@@ -69,6 +69,10 @@ async fn run(spawner: Spawner) -> anyhow::Result<()> {
         .spawn(tasks::sensor_task(static_station))
         .map_err(|_| anyhow!("‼️ Failed to spawn sensor task"))?;
 
+    spawner
+        .spawn(tasks::reboot_supervisor_task())
+        .map_err(|_| anyhow!("‼️ Failed to spawn reboot supervisor task"))?;
+
     // IMPORTANT: The run function must not end immediately,
     // or the Wi-Fi/NTP resources might be dropped.
     loop {

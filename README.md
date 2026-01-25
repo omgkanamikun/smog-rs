@@ -1,6 +1,6 @@
 # smog-rs 🦀🌬️
 
-A high-performance environmental monitoring firmware for the **ESP32-C3**, written in **Rust**.
+High-performance environmental monitoring firmware for the **ESP32-C3**, written in **Rust**.
 
 `smog-rs` turns an ESP32-C3 into a smart weather station, providing real-time data on temperature, humidity, atmospheric pressure, and Volatile Organic Compounds (VOC Index) using the Bosch BME280 and Sensirion SGP40 sensors. Data can be logged to the terminal and optionally reported to a remote HTTP endpoint.
 
@@ -12,6 +12,7 @@ A high-performance environmental monitoring firmware for the **ESP32-C3**, writt
 - **Time Sync (SNTP)**: Automatically synchronizes with global NTP servers (configured for Europe/Warsaw) on boot for accurate data timestamping.
 - **HTTP Reporting**: Support for sending sensor data to a JSON endpoint with configurable intervals.
 - **Professional Logging**: Color-coded ANSI terminal output with microsecond-accurate uptime tracking and formatted timestamps.
+- **SGP40 Self-Healing**: Detects the SGP40 "stuck at `VOC=1`" condition (after warm-up) and triggers a controlled MCU reboot to recover automatically.
 
 ## 🛠️ Tech Stack
 
@@ -57,7 +58,7 @@ WIFI_2GZ_PASS=your_password
 
 # HTTP Reporting Configuration
 HTTP_SENDING_ENABLED=true
-HTTP_CONSUMER_ENDPOINT_URL=http://your-api-endpoint.com/data
+HTTP_CONSUMER_ENDPOINT_URL=https://your-api-endpoint.com/data
 
 # Localization
 TIMEZONE=Europe/Warsaw
@@ -130,10 +131,14 @@ The app sends a JSON payload to the configured endpoint:
 
 ## 🛠️ Architecture & Design Patterns
 
-- **Static Promotion**: Hardware drivers and the `WeatherStation` are promoted to `'static` via `Box::leak`. This is a common pattern in embedded Rust to simplify sharing resources across async tasks without complex lifetime or `Arc` overhead.
+- **Static Promotion**: Hardware drivers and the `WeatherStation` are promoted to `'static` via `Box::leak`. This is a common pattern in embedded Rust to simplify sharing resources across async tasks without a complex lifetime or `Arc` overhead.
 - **Channel-based Communication**: The `sensor_task` produces data and sends it through an `embassy_sync::channel`, which the `network_task` consumes. This decouples sensing frequency from network latency.
 - **Resilience**: The `network_task` implements a "Phoenix" pattern where the entire `HttpClient` is dropped and recreated if a request fails. This clears any "poisoned" internal states in the underlying ESP-IDF HTTP stack.
 - **Shared Bus**: `RefCellDevice` from `embedded-hal-bus` allows safe, synchronous access to the I2C peripheral from multiple drivers within the same executor.
+- **SGP40 Recovery Supervisor**:
+  - The firmware tracks SGP40 behavior after a warm-up window.
+  - If the VOC index remains `1` for a configurable number of consecutive samples, the sensor task requests a reboot using an Embassy `Signal`.
+  - A dedicated `reboot_supervisor_task` performs the restart (`esp_restart()`), keeping reboot logic centralized and reducing complexity in the sensor loop.
 
 ## 📜 License
 MIT

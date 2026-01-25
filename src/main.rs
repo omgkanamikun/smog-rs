@@ -38,7 +38,7 @@ async fn run(spawner: Spawner) -> anyhow::Result<()> {
 
     let _wifi_guard =
         network::setup_wifi(peripherals.modem, system_event_loop, non_volatile_storage).await;
-    let _ntp_guard = time_utils::setup_ntp().await?;
+    let ntp_client = time_utils::setup_ntp().await?;
 
     let i2c_controller = peripherals.i2c0;
     let serial_data_pin = peripherals.pins.gpio6;
@@ -60,6 +60,10 @@ async fn run(spawner: Spawner) -> anyhow::Result<()> {
     info!("\x1b[38;5;27m✅ Sensors initialized successfully!\x1b[0m");
 
     Timer::after(Duration::from_millis(1000)).await;
+
+    spawner
+        .spawn(tasks::ntp_watcher_task(ntp_client))
+        .map_err(|_| anyhow!("‼️ Failed to spawn NTP watcher task"))?;
 
     spawner
         .spawn(tasks::network_task())

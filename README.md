@@ -125,7 +125,9 @@ The app sends a JSON payload to the configured endpoint:
   "humidity": 45.12,
   "pressure": 1013.25,
   "voc": 105,
-  "timestamp": "2026-01-08 21:15:30"
+  "time_synced": true,
+  "timestamp_unix_s": 1736376930,
+  "timezone": "Europe/Warsaw"
 }
 ```
 

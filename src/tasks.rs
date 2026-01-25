@@ -5,10 +5,12 @@ use crate::logging::log_weather_data;
 use crate::models::WeatherData;
 use crate::network::HttpClient;
 use crate::sensors::WeatherStation;
+use crate::time_utils::{ntp_sync_watcher, wait_time_sync_grace_period};
 use embassy_sync::blocking_mutex::raw::CriticalSectionRawMutex;
 use embassy_sync::channel::Channel;
 use embassy_sync::signal::Signal;
 use embassy_time::{Duration, Instant, Timer};
+use esp_idf_svc::sntp::EspSntp;
 use log::{error, info, warn};
 
 static NETWORK_CHANNEL: Channel<CriticalSectionRawMutex, WeatherData, 2> = Channel::new();
@@ -80,7 +82,56 @@ pub(crate) async fn sensor_task(station: &'static mut WeatherStation) {
                 last_send_time = Instant::now();
             }
         }
-        Timer::after(Duration::from_millis(EXECUTION_DELAY_MS)).await;
+        Timer::after_millis(EXECUTION_DELAY_MS).await;
+    }
+}
+
+/// The Http Client resets on every HTTP call to prevent ESP_FAIL 'connection is not in the initial phase'
+/// It is a known quirk of the esp-idf-svc HTTP client.
+/// This resets the internal state machine and clears any "poisoned" sockets.
+///When we continue the worker loop, the client variable goes out of the scope.
+/// Its Drop implementation is called, which internally tells the ESP-IDF to close the socket and free the memory.
+#[embassy_executor::task]
+pub(crate) async fn network_task() {
+    if !is_sending_enabled() {
+        info!("📡 Network Task: Disabled via config. Standing by.");
+        return;
+    }
+
+    wait_time_sync_grace_period().await;
+
+    info!("📡 Network Task: Ready and reusing connection.");
+
+    loop {
+        let mut client = match HttpClient::new() {
+            Ok(c) => c,
+            Err(e) => {
+                warn!("‼️ Network Task: Could not init HTTP client: {:?}", e);
+                Timer::after_secs(2).await;
+                continue;
+            }
+        };
+
+        let data = NETWORK_CHANNEL.receive().await;
+
+        match client.post_data(HTTP_CONSUMER_ENDPOINT_URL, &data) {
+            Ok(status) if status == 200 || status == 201 => {
+                info!("📡 Network: Data posted (Status {})", status);
+            }
+            Ok(429) => {
+                warn!("📡 Network: Rate limited (429). Cooling down...");
+                Timer::after_secs(5).await;
+            }
+            Ok(status) => error!("📡 Network: Server error (Status {})", status),
+            Err(error) => {
+                error!(
+                    "📡‼️ Network: Request failed: {:?}. Resetting http client...",
+                    error
+                );
+                Timer::after_secs(2).await;
+                continue;
+            }
+        }
     }
 }
 
@@ -102,54 +153,12 @@ pub(crate) async fn reboot_supervisor_task() {
     let reason = REBOOT_SIGNAL.wait().await;
     warn!("🔁 Reboot supervisor: reboot requested: {:?}", reason);
 
-    Timer::after(Duration::from_millis(200)).await;
+    Timer::after_millis(200).await;
 
     unsafe { esp_idf_svc::sys::esp_restart() }
 }
 
-/// The Http Client resets on every HTTP call to prevent ESP_FAIL 'connection is not in the initial phase'
-/// It is a known quirk of the esp-idf-svc HTTP client.
-/// This resets the internal state machine and clears any "poisoned" sockets.
-///When we continue the worker loop, the client variable goes out of the scope.
-/// Its Drop implementation is called, which internally tells the ESP-IDF to close the socket and free the memory.
 #[embassy_executor::task]
-pub(crate) async fn network_task() {
-    if !is_sending_enabled() {
-        info!("📡 Network Task: Disabled via config. Standing by.");
-        return;
-    }
-
-    info!("📡 Network Task: Ready and reusing connection.");
-
-    loop {
-        let mut client = match HttpClient::new() {
-            Ok(c) => c,
-            Err(e) => {
-                warn!("‼️ Network Task: Could not init HTTP client: {:?}", e);
-                Timer::after(Duration::from_secs(2)).await;
-                continue;
-            }
-        };
-
-        let data = NETWORK_CHANNEL.receive().await;
-
-        match client.post_data(HTTP_CONSUMER_ENDPOINT_URL, &data) {
-            Ok(status) if status == 200 || status == 201 => {
-                info!("📡 Network: Data posted (Status {})", status);
-            }
-            Ok(429) => {
-                warn!("📡 Network: Rate limited (429). Cooling down...");
-                Timer::after(Duration::from_secs(5)).await;
-            }
-            Ok(status) => error!("📡 Network: Server error (Status {})", status),
-            Err(error) => {
-                error!(
-                    "📡‼️ Network: Request failed: {:?}. Resetting http client...",
-                    error
-                );
-                Timer::after(Duration::from_secs(2)).await;
-                continue;
-            }
-        }
-    }
+pub(crate) async fn ntp_watcher_task(ntp_client: EspSntp<'static>) {
+    ntp_sync_watcher(ntp_client).await
 }

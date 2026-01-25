@@ -20,11 +20,6 @@ enum RebootReason {
     Sgp40StuckAtOne,
 }
 
-#[derive(Copy, Clone, Debug)]
-enum RebootReason {
-    Sgp40StuckAtOne,
-}
-
 static REBOOT_SIGNAL: Signal<CriticalSectionRawMutex, RebootReason> = Signal::new();
 
 /// Sensor polling task.

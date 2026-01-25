@@ -131,6 +131,12 @@ The app sends a JSON payload to the configured endpoint:
 }
 ```
 
+### Timestamp semantics
+
+- `timestamp_unix_s` is **Unix epoch seconds (UTC)** (an absolute moment in time).
+- `timezone` is an **IANA timezone identifier** used for display/localization (e.g. `"Europe/Warsaw"`).
+- `time_synced` indicates whether SNTP has synchronized the device clock. If `false`, consumers may prefer using ingestion time (`received_at`) or storing the sample as “unsynced” until a valid clock is available.
+
 ## 🛠️ Architecture & Design Patterns
 
 - **Static Promotion**: Hardware drivers and the `WeatherStation` are promoted to `'static` via `Box::leak`. This is a common pattern in embedded Rust to simplify sharing resources across async tasks without a complex lifetime or `Arc` overhead.

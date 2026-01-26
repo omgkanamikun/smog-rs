@@ -1,4 +1,3 @@
-#![feature(const_cmp)]
 mod config;
 mod logging;
 mod models;
@@ -37,7 +36,7 @@ async fn run(spawner: Spawner) -> anyhow::Result<()> {
     let non_volatile_storage = EspDefaultNvsPartition::take()?;
 
     let _wifi_guard =
-        network::setup_wifi(peripherals.modem, system_event_loop, non_volatile_storage).await;
+        network::setup_wifi(peripherals.modem, system_event_loop, non_volatile_storage).await?;
     let ntp_client = time_utils::setup_ntp().await?;
 
     let i2c_controller = peripherals.i2c0;

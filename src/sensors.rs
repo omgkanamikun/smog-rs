@@ -1,4 +1,3 @@
-use crate::config::TIMEZONE;
 use crate::logging::{log_empty_sample, log_sensor_error};
 use crate::models::WeatherData;
 use crate::{I2cBusDevice, SharedI2cBus, time_utils};
@@ -71,7 +70,7 @@ impl WeatherStation {
                         voc,
                         time_synced: time_utils::is_time_synced(),
                         timestamp_unix_s: time_utils::timestamp_unix_s(),
-                        timezone: TIMEZONE,
+                        timezone: time_utils::effective_timezone_name(),
                     })
                 } else {
                     log_empty_sample();

@@ -9,16 +9,16 @@ High-performance environmental monitoring firmware for the **ESP32-C3**, written
 - **Asynchronous Execution**: Powered by `embassy-executor` for efficient multitasking on the ESP32.
 - **Robust I2C Management**: Uses `embedded-hal-bus` with `RefCell` to safely share a single I2C bus between multiple sensors (BME280 and SGP40).
 - **Resilient Wi-Fi**: Implements a proactive connection manager with retry logic specifically tuned for unstable routers.
-- **Time Sync (SNTP)**: Automatically synchronizes with global NTP servers (configured for Europe/Warsaw) on boot for accurate data timestamping.
+- **Time Sync (SNTP)**: Automatically synchronizes with global NTP servers on boot; display timezone comes from `TIMEZONE` (falls back to UTC if invalid).
 - **HTTP Reporting**: Support for sending sensor data to a JSON endpoint with configurable intervals.
-- **Professional Logging**: Color-coded ANSI terminal output with microsecond-accurate uptime tracking and formatted timestamps.
+- **Professional Logging**: Color-coded ANSI terminal output with millisecond-precision uptime display and formatted timestamps.
 - **SGP40 Self-Healing**: Detects the SGP40 "stuck at `VOC=1`" condition (after warm-up) and triggers a controlled MCU reboot to recover automatically.
 
 ## 🛠️ Tech Stack
 
 - **MCU**: ESP32-C3 (RISC-V)
 - **Framework**: `esp-idf-svc` (Standard library support) + `embassy`
-- **Language**: Rust (Edition 2024, nightly features like `const_cmp`)
+- **Language**: Rust (Edition 2024, nightly toolchain for ESP-IDF build-std)
 - **Sensors**:
     - **BME280**: Temperature, Humidity, Pressure
     - **SGP40**: VOC Index (Gas sensing)
@@ -100,6 +100,12 @@ This project includes a `Justfile` to simplify common development tasks. If you 
 | `just monitor` | Opens the serial monitor for an already flashed device.                                |
 | `just clean`   | Removes build artifacts.                                                               |
 
+You can override defaults with variables:
+
+```bash
+just flash TARGET=riscv32imc-esp-espidf BIN=smog-rs PORT=/dev/ttyUSB0
+```
+
 *To see all available commands, simply run `just`.*
 
 ## ⚙️ Optimization Profile
@@ -134,7 +140,7 @@ The app sends a JSON payload to the configured endpoint:
 ### Timestamp semantics
 
 - `timestamp_unix_s` is **Unix epoch seconds (UTC)** (an absolute moment in time).
-- `timezone` is an **IANA timezone identifier** used for display/localization (e.g. `"Europe/Warsaw"`).
+- `timezone` is an **IANA timezone identifier** used for display/localization (e.g. `"Europe/Warsaw"`). If `TIMEZONE` is invalid, it falls back to `"UTC"`.
 - `time_synced` indicates whether SNTP has synchronized the device clock. If `false`, consumers may prefer using ingestion time (`received_at`) or storing the sample as “unsynced” until a valid clock is available.
 
 ## 🛠️ Architecture & Design Patterns
@@ -150,4 +156,3 @@ The app sends a JSON payload to the configured endpoint:
 
 ## 📜 License
 MIT
-

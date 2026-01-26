@@ -84,7 +84,7 @@ pub(crate) async fn sensor_task(station: &'static mut WeatherStation) {
 /// The Http Client resets on every HTTP call to prevent ESP_FAIL 'connection is not in the initial phase'
 /// It is a known quirk of the esp-idf-svc HTTP client.
 /// This resets the internal state machine and clears any "poisoned" sockets.
-///When we continue the worker loop, the client variable goes out of the scope.
+/// When we continue the worker loop, the client variable goes out of the scope.
 /// Its Drop implementation is called, which internally tells the ESP-IDF to close the socket and free the memory.
 #[embassy_executor::task]
 pub(crate) async fn network_task() {
@@ -95,7 +95,7 @@ pub(crate) async fn network_task() {
 
     wait_time_sync_grace_period().await;
 
-    info!("📡 Network Task: Ready and reusing connection.");
+    info!("📡 Network Task: Ready and using a new connection per request.");
 
     loop {
         let mut client = match HttpClient::new() {

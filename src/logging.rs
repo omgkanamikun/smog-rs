@@ -1,15 +1,16 @@
-use crate::config::BME280_EMPTY_SAMPLE_MSG;
 use crate::models::WeatherData;
 use crate::time_utils::get_formatted_timestamp;
 use log::{error, info, warn};
 
 const SPLASH_SCREEN: &str = r#"
-  ____                              ____      
- / ___| _ __ ___   ___   __ _      |  _ \ ___ 
+  ____                              ____
+ / ___| _ __ ___   ___   __ _      |  _ \ ___
  \___ \| '_ ` _ \ / _ \ / _` |_____| |_) / __|
   ___) | | | | | | (_) | (_| |_____|  _ <\__ \
  |____/|_| |_| |_|\___/ \__, |     |_| \_\___/
                         |___/                         "#;
+
+const BME280_EMPTY_SAMPLE_MSG: &str = "\x1b[38;5;11m 〇 BME280 returned empty or partial data";
 
 pub(crate) enum LogLevel {
     Info,

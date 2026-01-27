@@ -1,14 +1,19 @@
 # Justfile for smog-rs
 
+# Defaults (override via `just <cmd> TARGET=... BIN=... PORT=...`)
+TARGET := "riscv32imc-esp-espidf"
+BIN := "smog-rs"
+PORT := "/dev/cu.usbmodem1101"
+
 # Default recipe to show available commands
 default:
     @just --list
 
 # 1. Install necessary Rust ESP32 tools (espup, espflash, ldproxy)
 install-tools:
-    cargo install espup
-    cargo install espflash
-    cargo install ldproxy
+    cargo install espup --locked --force
+    cargo install espflash --locked --force
+    cargo install ldproxy --locked --force
 
 # 2. Initialize the ESP32 toolchain using espup
 init-esp:
@@ -25,7 +30,11 @@ build:
 
 # 5. Flash the firmware to the ESP32-C3 (Optional: direct after build)
 flash:
-    espflash flash target/riscv32imc-esp-espidf/release/smog-rs
+    if [ -n "{{PORT}}" ]; then \
+        espflash flash --port {{PORT}} target/{{TARGET}}/release/{{BIN}}; \
+    else \
+        espflash flash target/{{TARGET}}/release/{{BIN}}; \
+    fi
 
 # 6. Build, flash, and monitor the project (Recommended: wraps build and flash)
 run:
@@ -33,7 +42,19 @@ run:
 
 # Start the serial monitor (Direct/Optional)
 monitor:
-    espflash monitor
+    if [ -n "{{PORT}}" ]; then \
+        espflash monitor --port {{PORT}}; \
+    else \
+        espflash monitor; \
+    fi
+
+# Erase the flash (useful for clean rebuilds)
+erase:
+    if [ -n "{{PORT}}" ]; then \
+        espflash erase-flash --port {{PORT}}; \
+    else \
+        espflash erase-flash; \
+    fi
 
 # Clean the build artifacts
 clean:

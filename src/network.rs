@@ -2,7 +2,6 @@ use crate::config::{WIFI_PASS, WIFI_SSID};
 use crate::models::WeatherData;
 use anyhow::Result;
 use embassy_time::Timer;
-pub use embedded_svc::http::Status;
 use embedded_svc::http::client::Client as HttpClientImpl;
 use embedded_svc::io::Write;
 use esp_idf_svc::eventloop::EspSystemEventLoop;

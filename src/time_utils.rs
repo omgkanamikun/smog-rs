@@ -91,13 +91,22 @@ pub(crate) fn get_formatted_timestamp() -> String {
     now.format(TIMESTAMP_PATTERN).to_string()
 }
 
-fn get_current_time_in_timezone() -> DateTime<Tz> {
-    Utc::now().with_timezone(cached_timezone())
+pub(crate) fn effective_timezone_name() -> &'static str {
+    cached_timezone().name()
 }
 
 fn cached_timezone() -> &'static Tz {
     static TZ: OnceLock<Tz> = OnceLock::new();
-    TZ.get_or_init(|| TIMEZONE.parse().unwrap_or(chrono_tz::UTC))
+    TZ.get_or_init(|| {
+        TIMEZONE.parse().unwrap_or_else(|e| {
+            warn!("‼️ TZ parsing failed: {}, falling back to UTC", e);
+            chrono_tz::UTC
+        })
+    })
+}
+
+fn get_current_time_in_timezone() -> DateTime<Tz> {
+    Utc::now().with_timezone(cached_timezone())
 }
 
 fn mark_time_synced() {

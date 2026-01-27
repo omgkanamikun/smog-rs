@@ -1,9 +1,9 @@
 # Justfile for smog-rs
 
 # Defaults (override via `just <cmd> TARGET=... BIN=... PORT=...`)
-TARGET := riscv32imc-esp-espidf
-BIN := smog-rs
-PORT := /dev/ttyUSB0
+TARGET := "riscv32imc-esp-espidf"
+BIN := "smog-rs"
+PORT := "/dev/cu.usbmodem1101"
 
 # Default recipe to show available commands
 default:
@@ -11,9 +11,9 @@ default:
 
 # 1. Install necessary Rust ESP32 tools (espup, espflash, ldproxy)
 install-tools:
-    cargo install espup
-    cargo install espflash
-    cargo install ldproxy
+    cargo install espup --locked --force
+    cargo install espflash --locked --force
+    cargo install ldproxy --locked --force
 
 # 2. Initialize the ESP32 toolchain using espup
 init-esp:
@@ -55,10 +55,6 @@ erase:
     else \
         espflash erase-flash; \
     fi
-
-# Show binary size info
-size:
-    espflash size target/{{TARGET}}/release/{{BIN}}
 
 # Clean the build artifacts
 clean:

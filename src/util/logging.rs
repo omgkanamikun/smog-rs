@@ -1,5 +1,5 @@
-use crate::models::WeatherData;
-use crate::time_utils::get_formatted_timestamp;
+use crate::domain::models::WeatherData;
+use crate::util::time_utils::get_formatted_timestamp;
 use log::{error, info, warn};
 
 const SPLASH_SCREEN: &str = r#"
@@ -54,7 +54,7 @@ pub(crate) fn log_empty_sample() {
 }
 
 fn log_message(level: LogLevel, message: &str, custom_ts: &str) {
-    let uptime = crate::time_utils::get_uptime_string();
+    let uptime = crate::util::time_utils::get_uptime_string();
     let prefix = format!("{} [{}]", uptime, custom_ts);
 
     match level {

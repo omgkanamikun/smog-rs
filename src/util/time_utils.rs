@@ -1,4 +1,4 @@
-use crate::config::{TIMESTAMP_PATTERN, TIMEZONE};
+use crate::util::config::{TIMESTAMP_PATTERN, TIMEZONE};
 use anyhow::Context;
 use chrono::{DateTime, Utc};
 use chrono_tz::Tz;

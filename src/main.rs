@@ -1,13 +1,11 @@
-mod config;
-mod logging;
-mod models;
-mod network;
-mod sensors;
-mod tasks;
-mod time_utils;
+mod domain;
+mod services;
+mod util;
 
-use crate::config::I2C_BAUDRATE_HERTZ;
-use crate::sensors::WeatherStation;
+use crate::services::sensors::WeatherStation;
+use crate::services::{network, tasks};
+use crate::util::config::I2C_BAUDRATE_HERTZ;
+use crate::util::{logging, time_utils};
 use anyhow::{Context, anyhow};
 use embassy_executor::Spawner;
 use embassy_time::{Duration, Timer};

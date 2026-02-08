@@ -143,6 +143,17 @@ The app sends a JSON payload to the configured endpoint:
 - `timezone` is an **IANA timezone identifier** used for display/localization (e.g. `"Europe/Warsaw"`). If `TIMEZONE` is invalid, it falls back to `"UTC"`.
 - `time_synced` indicates whether SNTP has synchronized the device clock. If `false`, consumers may prefer using ingestion time (`received_at`) or storing the sample as “unsynced” until a valid clock is available.
 
+## 📂 Project Structure & Architecture
+
+The project follows a clean, three-pillar architecture to separate concerns and ensure maintainability:
+
+- **`domain`**: Contains the core data models and business logic (e.g., `WeatherData`).
+- **`services`**: Implements high-level functionality like networking, sensor management, and asynchronous tasks.
+- **`util`**: Houses cross-cutting utilities, including:
+    - `config.rs`: Centralized configuration management (moved from root to `util`).
+    - `logging.rs`: Standardized logging patterns.
+    - `time_utils.rs`: NTP synchronization and timestamp formatting.
+
 ## 🛠️ Architecture & Design Patterns
 
 - **Static Promotion**: Hardware drivers and the `WeatherStation` are promoted to `'static` via `Box::leak`. This is a common pattern in embedded Rust to simplify sharing resources across async tasks without a complex lifetime or `Arc` overhead.

@@ -1,5 +1,5 @@
-use crate::config::{WIFI_PASS, WIFI_SSID};
-use crate::models::WeatherData;
+use crate::domain::models::WeatherData;
+use crate::util::config::{WIFI_PASS, WIFI_SSID};
 use anyhow::Result;
 use embassy_time::Timer;
 use embedded_svc::http::client::Client as HttpClientImpl;

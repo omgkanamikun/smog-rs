@@ -1,11 +1,11 @@
-use crate::config::{
+use crate::domain::models::WeatherData;
+use crate::services::network::HttpClient;
+use crate::services::sensors::WeatherStation;
+use crate::util::config::{
     EXECUTION_DELAY_MS, HTTP_CONSUMER_ENDPOINT_URL, HTTP_SEND_INTERVAL_MS, is_sending_enabled,
 };
-use crate::logging::log_weather_data;
-use crate::models::WeatherData;
-use crate::network::HttpClient;
-use crate::sensors::WeatherStation;
-use crate::time_utils::{ntp_sync_watcher, wait_time_sync_grace_period};
+use crate::util::logging::log_weather_data;
+use crate::util::time_utils::{ntp_sync_watcher, wait_time_sync_grace_period};
 use embassy_sync::blocking_mutex::raw::CriticalSectionRawMutex;
 use embassy_sync::channel::Channel;
 use embassy_sync::signal::Signal;

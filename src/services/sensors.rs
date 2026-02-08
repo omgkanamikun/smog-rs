@@ -1,6 +1,7 @@
-use crate::logging::{log_empty_sample, log_sensor_error};
-use crate::models::WeatherData;
-use crate::{I2cBusDevice, SharedI2cBus, time_utils};
+use crate::domain::models::WeatherData;
+use crate::util::logging::{log_empty_sample, log_sensor_error};
+use crate::util::time_utils;
+use crate::{I2cBusDevice, SharedI2cBus};
 use anyhow::Context;
 use bme280_rs::{Bme280, Configuration, Oversampling, SensorMode};
 use embassy_time::{Delay, Duration, Instant, Timer};

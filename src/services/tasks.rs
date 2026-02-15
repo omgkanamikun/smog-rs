@@ -110,7 +110,7 @@ pub(crate) async fn network_task() {
         let data = NETWORK_CHANNEL.receive().await;
 
         match client.post_data(HTTP_CONSUMER_ENDPOINT_URL, &data) {
-            Ok(status) if status == 200 || status == 201 => {
+            Ok(status) if status == 200 || status == 202 => {
                 info!("📡 Network: Data posted (Status {})", status);
             }
             Ok(429) => {

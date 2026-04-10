@@ -65,6 +65,7 @@ WIFI_2GZ_PASS=your_password
 # HTTP Reporting Configuration
 HTTP_SENDING_ENABLED=true
 HTTP_CONSUMER_ENDPOINT_URL=https://your-api-endpoint.com/data
+INGEST_API_KEY=your_api_key_here
 
 # Localization
 TIMEZONE=Europe/Warsaw

@@ -29,6 +29,12 @@ High-performance environmental monitoring firmware for the **ESP32-C3**, written
 
 Ensure you have the Rust ESP32 toolchain and necessary tools installed:
 
+> [!NOTE]
+> ESP32/Espressif targets require the Rust **nightly** toolchain — `build-std` (compiling
+> `std` from source for the target chip) is an unstable feature not yet available on stable.
+> The exact nightly is pinned in `rust-toolchain.toml`; `rustup` picks it up automatically —
+> no manual `rustup override` needed. To upgrade, update the date in `rust-toolchain.toml`.
+
 ```bash
 # Install espup to manage the toolchain
 cargo install espup
@@ -59,6 +65,7 @@ WIFI_2GZ_PASS=your_password
 # HTTP Reporting Configuration
 HTTP_SENDING_ENABLED=true
 HTTP_CONSUMER_ENDPOINT_URL=https://your-api-endpoint.com/data
+INGEST_API_KEY=your_api_key_here
 
 # Localization
 TIMEZONE=Europe/Warsaw

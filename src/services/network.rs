@@ -1,5 +1,5 @@
 use crate::domain::models::WeatherData;
-use crate::util::config::{WIFI_PASS, WIFI_SSID};
+use crate::util::config::{INGEST_API_KEY, WIFI_PASS, WIFI_SSID};
 use anyhow::Result;
 use embassy_time::Timer;
 use embedded_svc::http::client::Client as HttpClientImpl;
@@ -101,6 +101,7 @@ impl HttpClient {
         let headers = [
             ("Content-Type", "application/json"),
             ("Content-Length", &len),
+            ("X-Api-Key", INGEST_API_KEY),
         ];
 
         let mut request = self.client.post(url, &headers)?;

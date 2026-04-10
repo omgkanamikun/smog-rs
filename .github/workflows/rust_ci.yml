@@ -41,7 +41,6 @@ jobs:
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@v1
         with:
-          toolchain: nightly
           components: rustfmt
 
       - name: Enable caching
@@ -59,7 +58,6 @@ jobs:
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@v1
         with:
-          toolchain: nightly
           components: clippy
 
       - name: Enable caching
@@ -83,7 +81,6 @@ jobs:
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@v1
         with:
-          toolchain: nightly
           components: rust-src rustfmt clippy
 
       - name: Enable caching

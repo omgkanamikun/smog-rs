@@ -3,5 +3,5 @@
 # which automatically compiles `std` from the source for your specific chip.
 # This feature is currently unstable and requires the `nightly` toolchain.
 [toolchain]
-channel = "nightly"
+channel = "nightly-2026-04-08"
 components = ["rust-src"]

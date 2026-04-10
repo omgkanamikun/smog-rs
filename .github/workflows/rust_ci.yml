@@ -25,6 +25,8 @@ permissions:
 env:
   CARGO_TERM_COLOR: always
   GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+  # Keep in sync with rust-toolchain.toml
+  RUST_TOOLCHAIN: nightly-2026-04-08
   WIFI_2GZ_SSID: dummy_ssid
   WIFI_2GZ_PASS: dummy_password
   HTTP_SENDING_ENABLED: false
@@ -41,6 +43,8 @@ jobs:
 
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@v1
+        with:
+          toolchain: ${{ env.RUST_TOOLCHAIN }}
 
       - name: Enable caching
         uses: Swatinem/rust-cache@v2
@@ -56,6 +60,8 @@ jobs:
 
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@v1
+        with:
+          toolchain: ${{ env.RUST_TOOLCHAIN }}
 
       - name: Enable caching
         uses: Swatinem/rust-cache@v2
@@ -77,6 +83,8 @@ jobs:
 
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@v1
+        with:
+          toolchain: ${{ env.RUST_TOOLCHAIN }}
 
       - name: Enable caching
         uses: Swatinem/rust-cache@v2

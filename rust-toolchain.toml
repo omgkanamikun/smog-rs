@@ -4,4 +4,4 @@
 # This feature is currently unstable and requires the `nightly` toolchain.
 [toolchain]
 channel = "nightly-2026-04-08"
-components = ["rust-src"]
+components = ["rust-src", "rustfmt", "clippy"]

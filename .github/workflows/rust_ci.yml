@@ -90,7 +90,7 @@ jobs:
         uses: Swatinem/rust-cache@v2
 
       - name: Install ldproxy
-        run: cargo install ldproxy
+        run: cargo +stable install ldproxy
 
       - name: Build
         run: cargo build --release

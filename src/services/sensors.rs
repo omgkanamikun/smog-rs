@@ -1,20 +1,24 @@
 use crate::domain::models::WeatherData;
 use crate::util::logging::{log_empty_sample, log_sensor_error};
 use crate::util::time_utils;
-use crate::{I2cBusDevice, SharedI2cBus};
 use anyhow::Context;
 use bme280_rs::{Bme280, Configuration, Oversampling, SensorMode};
 use embassy_time::{Delay, Duration, Instant, Timer};
 use embedded_hal_bus::i2c::RefCellDevice;
+use esp_idf_svc::hal::i2c::I2cDriver;
 use sgp40::Sgp40;
+use std::cell::RefCell;
 
 const SGP_40_WARMUP_SECS: u64 = 60;
 const SGP_40_STUCK_AT_ONE_THRESHOLD: u16 = 20;
 
+type SharedI2cBus = RefCell<I2cDriver<'static>>;
+type I2cBusDevice = RefCellDevice<'static, I2cDriver<'static>>;
+
 pub(crate) struct WeatherStation {
     bme280: Bme280<I2cBusDevice, Delay>,
     sgp40: Sgp40<I2cBusDevice, Delay>,
-    sgp40health: Sgp40Health,
+    sgp40_health: Sgp40Health,
 }
 
 impl WeatherStation {
@@ -36,12 +40,12 @@ impl WeatherStation {
             .context("‼️BME280 sensor configuration error")?;
 
         let sgp = Sgp40::new(sgp_i2c, 0x59, Delay);
-        let sgp40health = Sgp40Health::new();
+        let sgp_40_health = Sgp40Health::new();
 
         Ok(Self {
             bme280: bme,
             sgp40: sgp,
-            sgp40health,
+            sgp40_health: sgp_40_health,
         })
     }
 
@@ -51,6 +55,7 @@ impl WeatherStation {
                 if let (Some(t), Some(h), Some(p)) =
                     (sample.temperature, sample.humidity, sample.pressure)
                 {
+                    // 50ms between BME280 and SGP40
                     Timer::after_millis(50).await;
 
                     let voc = match self.sgp40.measure_voc_index_with_rht(
@@ -86,7 +91,7 @@ impl WeatherStation {
     }
 
     pub(crate) fn sgp40_stuck_at_one(&mut self, voc: Option<u16>) -> bool {
-        self.sgp40health.check_stuck_condition(voc)
+        self.sgp40_health.check_stuck_condition(voc)
     }
 }
 

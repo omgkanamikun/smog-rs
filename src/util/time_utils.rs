@@ -80,6 +80,7 @@ pub(crate) fn timestamp_unix_s() -> i64 {
 }
 
 pub(crate) fn get_uptime_string() -> String {
+    // SAFETY: esp_timer_get_time() is always safe to call after IDF init; returns monotonic µs.
     let micros = unsafe { esp_timer_get_time() };
     let seconds = micros / 1_000_000;
     let millis = (micros % 1_000_000) / 1_000;

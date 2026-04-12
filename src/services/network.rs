@@ -1,5 +1,7 @@
 use crate::domain::models::WeatherData;
-use crate::util::config::{INGEST_API_KEY, WIFI_PASS, WIFI_SSID};
+use crate::util::config::{
+    INGEST_API_KEY, MAX_CONNECT_ATTEMPTS, MAX_CONNECTED_WAIT_TICKS, WIFI_PASS, WIFI_SSID,
+};
 use anyhow::Result;
 use embassy_time::Timer;
 use embedded_svc::http::client::Client as HttpClientImpl;
@@ -29,11 +31,10 @@ pub(crate) async fn setup_wifi(
 
     info!("📶 WiFi starting...");
 
+    // 500ms before first connect
     Timer::after_millis(500).await;
 
     let mut attempts = 0;
-    const MAX_ATTEMPTS: u32 = 40;
-    const MAX_CONNECTED_WAIT_TICKS: u32 = 40;
 
     loop {
         attempts += 1;
@@ -60,7 +61,7 @@ pub(crate) async fn setup_wifi(
             Err(e) => warn!("📶 Connect call failed: {:?}", e),
         }
 
-        if attempts >= MAX_ATTEMPTS {
+        if attempts >= MAX_CONNECT_ATTEMPTS {
             anyhow::bail!("‼️📶 Failed to connect after {} attempts", attempts);
         }
 

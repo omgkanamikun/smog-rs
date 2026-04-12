@@ -4,12 +4,11 @@ mod util;
 
 use crate::services::sensors::WeatherStation;
 use crate::services::{network, tasks};
-use crate::util::config::I2C_BAUDRATE_HERTZ;
+use crate::util::config::{EXECUTION_DELAY_MS, I2C_BAUDRATE_HERTZ};
 use crate::util::{logging, time_utils};
 use anyhow::{Context, anyhow};
 use embassy_executor::Spawner;
 use embassy_time::{Duration, Timer};
-use embedded_hal_bus::i2c::RefCellDevice;
 use esp_idf_svc::eventloop::EspSystemEventLoop;
 use esp_idf_svc::hal::gpio::{Gpio8, Output, PinDriver};
 use esp_idf_svc::hal::i2c::{I2cConfig, I2cDriver};
@@ -21,8 +20,7 @@ use esp_idf_svc::sys::link_patches;
 use log::{error, info};
 use std::cell::RefCell;
 
-type SharedI2cBus = RefCell<I2cDriver<'static>>;
-type I2cBusDevice = RefCellDevice<'static, I2cDriver<'static>>;
+const ONE_DAY_SECS: u64 = 86400;
 
 async fn run(spawner: Spawner) -> anyhow::Result<()> {
     logging::print_splash_screen();
@@ -56,7 +54,7 @@ async fn run(spawner: Spawner) -> anyhow::Result<()> {
 
     info!("\x1b[38;5;27m✅ Sensors initialized successfully!\x1b[0m");
 
-    Timer::after(Duration::from_millis(1000)).await;
+    Timer::after_millis(EXECUTION_DELAY_MS).await;
 
     spawner
         .spawn(tasks::ntp_watcher_task(ntp_client))
@@ -77,7 +75,7 @@ async fn run(spawner: Spawner) -> anyhow::Result<()> {
     // IMPORTANT: The run function must not end immediately,
     // or the Wi-Fi/NTP resources might be dropped.
     loop {
-        Timer::after(Duration::from_secs(86400)).await;
+        Timer::after(Duration::from_secs(ONE_DAY_SECS)).await;
     }
 }
 

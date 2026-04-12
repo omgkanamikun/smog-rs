@@ -22,6 +22,10 @@ enum RebootReason {
 
 static REBOOT_SIGNAL: Signal<CriticalSectionRawMutex, RebootReason> = Signal::new();
 
+const HTTP_OK: u16 = 200;
+const HTTP_ACCEPTED: u16 = 202;
+const HTTP_RATE_LIMITED: u16 = 429;
+
 /// Sensor polling task.
 ///
 /// Continuously reads weather data from the sensor station at a fixed interval and manages data flow.
@@ -66,9 +70,7 @@ pub(crate) async fn sensor_task(station: &'static mut WeatherStation) {
         if let Some(data) = station.read_sensor_data().await {
             log_weather_data(&data);
 
-            let is_stuck_at_one = station.sgp40_stuck_at_one(data.voc);
-
-            if is_stuck_at_one {
+            if station.sgp40_stuck_at_one(data.voc) {
                 warn!("‼️ SGP40 appears stuck at VOC=1. Requesting reboot...");
                 REBOOT_SIGNAL.signal(RebootReason::Sgp40StuckAtOne)
             }
@@ -110,10 +112,10 @@ pub(crate) async fn network_task() {
         let data = NETWORK_CHANNEL.receive().await;
 
         match client.post_data(HTTP_CONSUMER_ENDPOINT_URL, &data) {
-            Ok(status) if status == 200 || status == 202 => {
+            Ok(status) if status == HTTP_OK || status == HTTP_ACCEPTED => {
                 info!("📡 Network: Data posted (Status {})", status);
             }
-            Ok(429) => {
+            Ok(HTTP_RATE_LIMITED) => {
                 warn!("📡 Network: Rate limited (429). Cooling down...");
                 Timer::after_secs(5).await;
             }
@@ -150,6 +152,7 @@ pub(crate) async fn reboot_supervisor_task() {
 
     Timer::after_millis(200).await;
 
+    // SAFETY: esp_restart() is an IDF function that never returns; valid to call from any context.
     unsafe { esp_idf_svc::sys::esp_restart() }
 }
 
